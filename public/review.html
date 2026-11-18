@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Write a review</title>
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .doc { padding: 22px 18px 60px; background: #fff; min-height: 80vh; }
+  .rate { display: flex; gap: 6px; margin: 6px 0 14px; }
+  .rate button { font-size: 34px; border: 0; background: none; color: #d5d9df; cursor: pointer; padding: 0; }
+  .rate button.on { color: #f5a623; }
+  .ok { background: var(--green-bg); color: var(--green); padding: 14px; border-radius: 12px; font-weight: 700; }
+</style>
+</head>
+<body>
+<header class="header"><a class="logo" href="/"><span class="logo-mark">S</span><span data-brand>Seedha</span></a><a class="header-rating" href="/">← Shop</a></header>
+<main class="doc">
+  <h1>How’s your belt?</h1>
+  <p class="muted">Your honest review helps other men decide. Only customers with an order number can post.</p>
+  <form id="rv" novalidate>
+    <label>Order number<input name="orderNo" placeholder="e.g. SD1001" required maxlength="20"></label>
+    <label>Mobile number used for the order<input name="phone" inputmode="numeric" maxlength="10" required></label>
+    <label>Your first name<input name="name" maxlength="40"></label>
+    <label>Rating</label>
+    <div class="rate" id="rate">★★★★★</div>
+    <label>Your review<textarea name="text" rows="4" maxlength="600" required placeholder="How does it feel? Did it help your posture?"></textarea></label>
+    <p class="form-error" id="err" hidden></p>
+    <button class="btn btn-buy" type="submit">Submit review</button>
+  </form>
+  <p class="ok" id="ok" hidden>Thank you! Your review will appear after a quick check. 🙏</p>
+</main>
+<script src="/review.js" type="module"></script>
+</body>
+</html>

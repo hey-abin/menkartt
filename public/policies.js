@@ -1,0 +1,13 @@
+const cfg = await (await fetch('/api/config')).json();
+const B = cfg.business;
+const set = (sel, fn) => document.querySelectorAll(sel).forEach(fn);
+set('[data-brand]', (e) => (e.textContent = cfg.brand));
+set('[data-legal-name]', (e) => (e.textContent = B.legalName));
+set('[data-address]', (e) => (e.textContent = B.address));
+set('[data-phone]', (e) => (e.textContent = B.phone));
+set('[data-email-link]', (e) => { e.textContent = B.email; e.href = `mailto:${B.email}`; });
+set('[data-dispatch]', (e) => (e.textContent = cfg.dispatchDays));
+set('[data-delivery]', (e) => (e.textContent = cfg.deliveryDays));
+set('[data-repl]', (e) => (e.textContent = cfg.replacementDays));
+document.getElementById('updated').textContent = new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
