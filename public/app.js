@@ -102,6 +102,11 @@ function fillBusiness() {
   $$('[data-email-text]').forEach((a) => (a.textContent = B.email));
   $$('[data-legal]').forEach((e) => (e.textContent = [`© ${new Date().getFullYear()} ${B.legalName || cfg.brand}`, B.address].filter(Boolean).join(' · ')));
   if (!cfg.codEnabled) { $('#cod-opt').hidden = true; $$('.cod-note').forEach((e) => (e.hidden = true)); }
+  // Online payment not set up yet (no Razorpay keys on the live site) → only offer COD so nobody hits an error
+  if (!cfg.razorpayKeyId && !cfg.paymentMock && cfg.codEnabled) {
+    const pre = $('.pay-opt[data-pay="prepaid"]'); pre.hidden = true;
+    $('input[name="payMethod"][value="cod"]').checked = true; payMethod = 'cod';
+  }
 }
 
 // ---------- gallery ----------

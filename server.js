@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { adminIndex, adminLogin } from './admin/pages.js';
 import { config, publicConfig, bundleById } from './src/config.js';
 import { db, initDb } from './src/db.js';
 import { razorpayEnabled, createRazorpayOrder, verifyPaymentSignature, verifyWebhookSignature } from './src/razorpay.js';
@@ -11,13 +12,8 @@ const app = express();
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 const ROOT = import.meta.dirname;
-// HTML served by the server itself (read once; `new URL(…, import.meta.url)` lets Vercel bundle these files)
-const html = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
-const PAGES = {
-  adminIndex: html('./admin/index.html'),
-  adminLogin: html('./admin/login.html'),
-  store: html('./public/index.html'),
-};
+// Dashboard HTML lives in a JS module so it is always bundled (Vercel does not ship loose .html files with the function)
+const PAGES = { adminIndex, adminLogin };
 
 // Connect to the database once, on the first request (works for a normal server and for Vercel functions)
 let dbReady;
@@ -415,8 +411,18 @@ app.get('/api/admin/orders.csv', async (_req, res) => {
 
 // ---------- storefront ----------
 app.use(express.static(path.join(ROOT, 'public'), { maxAge: config.isProd ? '7d' : 0, setHeaders: (res, p) => { if (p.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); } }));
+// Local server: page routes (on Vercel these are served directly from public/ – see vercel.json)
+const STORE_FILE = path.join(ROOT, 'public/store.html');
+app.get(['/', '/store'], (req, res) => {
+  try {
+    return res.type('html').set('Cache-Control', 'public, max-age=0, s-maxage=300').send(fs.readFileSync(STORE_FILE, 'utf8'));
+  } catch { /* file not bundled with the function – fall through to redirect */ }
+  // On Vercel the page lives on the CDN at /store – keep the ad tracking parameters
+  const q = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  res.redirect(302, '/store' + q);
+});
 app.get(['/policies', '/review'], (req, res) => res.sendFile(path.join(ROOT, `public${req.path}.html`)));
-app.use((_req, res) => res.status(404).type('html').send(PAGES.store));
+app.use((req, res) => (req.path.startsWith('/api/') ? res.status(404).json({ error: 'Not found' }) : res.redirect(302, '/')));
 
 if (config.isProd && (!config.adminPassword || !config.sessionSecret)) {
   console.error('⚠ ADMIN_PASSWORD and SESSION_SECRET are not set – the dashboard stays locked until you add them.');

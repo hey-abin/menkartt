@@ -60,8 +60,10 @@ Prices and packs are in `src/config.js` (`bundles`): 1 belt ₹399 online / ₹4
 Use this as the ad's website URL, so the dashboard knows which ad brought each visitor:
 
 ```
-https://your-domain/?utm_source=facebook&utm_medium=paid&utm_campaign=posture_men_v1
+https://menkartt.vercel.app/store?utm_source=facebook&utm_medium=paid&utm_campaign=posture_men_v1
 ```
+
+(Link to `/store` directly. `/` also works but adds a quick redirect.)
 
 Change `utm_campaign` for each ad set (e.g. `posture_office_v1`, `posture_gym_v1`). Meta also adds `fbclid` itself, which the store counts as an ad click. With `META_PIXEL_ID` set, the store sends **PageView, ViewContent, AddToCart, InitiateCheckout, AddPaymentInfo and Purchase** to Meta, so you can optimise campaigns for purchases.
 

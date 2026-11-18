@@ -141,7 +141,7 @@ async function loadAbandoned() {
   $('#ab-count').textContent = open.length;
   $('#abandoned').innerHTML = list.length ? list.map((c) => {
     const first = (c.name || '').split(' ')[0] || 'there';
-    const msg = `Hi ${first}! You were just one step away from your ${cfg.brand} posture belt 🙂 Pay online now for ₹${cfg.bundles?.[0]?.prepaid ?? ''} with free delivery, or choose Cash on Delivery. Complete your order here: ${location.origin}/#buy`;
+    const msg = `Hi ${first}! You were just one step away from your ${cfg.brand} posture belt 🙂 Pay online now for ₹${cfg.bundles?.[0]?.prepaid ?? ''} with free delivery, or choose Cash on Delivery. Complete your order here: ${location.origin}/store#buy`;
     return `<div class="order" data-cid="${esc(c._id)}">
       <div class="o-top"><span><b>${esc(c.name || 'No name')}</b> <span class="o-when">${ago(c.updatedAt)}</span></span>${c.status === 'contacted' ? '<span class="badge b-paid">Contacted</span>' : '<span class="badge b-fail">Not contacted</span>'}</div>
       <div class="o-mid"><a href="tel:+91${esc(c.phone)}">+91 ${esc(c.phone)}</a><span>${esc(c.city || '')} ${esc(c.pincode || '')}</span><span>${esc(c.bundleId)} · ${c.payMethod === 'cod' ? 'chose COD' : 'chose prepaid'}</span>
