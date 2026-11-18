@@ -1,5 +1,6 @@
 import express from 'express';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import path from 'node:path';
 import { config, publicConfig, bundleById } from './src/config.js';
 import { db, initDb } from './src/db.js';
@@ -10,6 +11,20 @@ const app = express();
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 const ROOT = import.meta.dirname;
+// HTML served by the server itself (read once; `new URL(…, import.meta.url)` lets Vercel bundle these files)
+const html = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
+const PAGES = {
+  adminIndex: html('./admin/index.html'),
+  adminLogin: html('./admin/login.html'),
+  store: html('./public/index.html'),
+};
+
+// Connect to the database once, on the first request (works for a normal server and for Vercel functions)
+let dbReady;
+app.use(async (_req, res, next) => {
+  try { await (dbReady ??= initDb()); next(); }
+  catch (e) { dbReady = null; console.error('DB init failed', e); res.status(503).json({ error: 'Store is starting, please try again in a moment.' }); }
+});
 
 // ---------- security headers ----------
 app.use((req, res, next) => {
@@ -273,9 +288,8 @@ app.post('/api/reviews', rateLimit('reviews', 5, 60 * 60_000), async (req, res) 
 // ---------- admin ----------
 app.post('/api/admin/login', rateLimit('login', 20, 15 * 60_000), login);
 app.post('/api/admin/logout', logout);
-app.get('/admin/login', (req, res) => (isAdmin(req) ? res.redirect('/admin') : res.sendFile(path.join(ROOT, 'admin/login.html'))));
-app.get('/admin', requireAdmin, (_req, res) => res.sendFile(path.join(ROOT, 'admin/index.html')));
-app.use('/admin', requireAdmin, express.static(path.join(ROOT, 'admin'), { index: false }));
+app.get('/admin/login', (req, res) => (isAdmin(req) ? res.redirect('/admin') : res.type('html').set('Cache-Control', 'no-store').send(PAGES.adminLogin)));
+app.get(['/admin', '/admin/'], requireAdmin, (_req, res) => res.type('html').set('Cache-Control', 'no-store').send(PAGES.adminIndex));
 app.use('/api/admin', requireAdmin);
 
 const IST = 330 * 60_000;
@@ -402,15 +416,18 @@ app.get('/api/admin/orders.csv', async (_req, res) => {
 // ---------- storefront ----------
 app.use(express.static(path.join(ROOT, 'public'), { maxAge: config.isProd ? '7d' : 0, setHeaders: (res, p) => { if (p.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); } }));
 app.get(['/policies', '/review'], (req, res) => res.sendFile(path.join(ROOT, `public${req.path}.html`)));
-app.use((_req, res) => res.status(404).sendFile(path.join(ROOT, 'public/index.html')));
+app.use((_req, res) => res.status(404).type('html').send(PAGES.store));
 
-// ---------- start ----------
 if (config.isProd && (!config.adminPassword || !config.sessionSecret)) {
-  console.error('Set ADMIN_PASSWORD and SESSION_SECRET in production.'); process.exit(1);
+  console.error('⚠ ADMIN_PASSWORD and SESSION_SECRET are not set – the dashboard stays locked until you add them.');
 }
-await initDb();
-app.listen(config.port, () => {
-  console.log(`Store running → http://localhost:${config.port}`);
-  console.log(`Dashboard     → http://localhost:${config.port}/admin`);
-  if (!razorpayEnabled()) console.log(config.paymentMock ? '⚠ Razorpay keys not set – online payments run in TEST MODE (simulated).' : '⚠ Razorpay keys not set – online payment disabled.');
-});
+
+// On Vercel the platform runs the exported app; locally we start a normal server.
+export default app;
+if (!process.env.VERCEL) {
+  app.listen(config.port, () => {
+    console.log(`Store running → http://localhost:${config.port}`);
+    console.log(`Dashboard     → http://localhost:${config.port}/admin`);
+    if (!razorpayEnabled()) console.log(config.paymentMock ? '⚠ Razorpay keys not set – online payments run in TEST MODE (simulated).' : '⚠ Razorpay keys not set – online payment disabled.');
+  });
+}

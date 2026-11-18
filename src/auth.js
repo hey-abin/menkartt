@@ -16,7 +16,7 @@ function parseCookies(req) {
 
 export function isAdmin(req) {
   const token = parseCookies(req)[COOKIE];
-  if (!token) return false;
+  if (!token || !config.sessionSecret) return false;
   const [exp, sig] = token.split('.');
   if (!exp || !sig || Number(exp) < Date.now()) return false;
   const good = sign(exp);
@@ -30,7 +30,7 @@ export function login(req, res) {
   const a = attempts.get(ip) || { n: 0, until: 0 };
   if (a.until > Date.now()) return res.status(429).json({ error: 'Too many attempts. Try again in 15 minutes.' });
   const pw = String(req.body?.password || '');
-  const ok = config.adminPassword && pw.length === config.adminPassword.length &&
+  const ok = config.adminPassword && config.sessionSecret && pw.length === config.adminPassword.length &&
     crypto.timingSafeEqual(Buffer.from(pw), Buffer.from(config.adminPassword));
   if (!ok) {
     a.n += 1; if (a.n >= 5) { a.until = Date.now() + 15 * 60 * 1000; a.n = 0; }
