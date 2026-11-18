@@ -93,10 +93,14 @@ function fillBusiness() {
   $$('[data-repl]').forEach((e) => (e.textContent = cfg.replacementDays));
   $$('[data-dispatch]').forEach((e) => (e.textContent = cfg.dispatchDays));
   $$('[data-delivery]').forEach((e) => (e.textContent = cfg.deliveryDays));
-  const wa = `https://wa.me/${B.whatsapp}?text=${encodeURIComponent(`Hi ${cfg.brand}, I have a question about the posture belt`)}`;
-  $$('[data-whatsapp]').forEach((a) => { a.href = wa; a.target = '_blank'; a.rel = 'noopener'; a.addEventListener('click', () => track('whatsapp_click')); });
+  if (B.whatsapp) {
+    const wa = `https://wa.me/${B.whatsapp}?text=${encodeURIComponent(`Hi ${cfg.brand}, I have a question about the posture belt`)}`;
+    $$('[data-wa-wrap]').forEach((e) => (e.hidden = false));
+    $$('[data-whatsapp]').forEach((a) => { a.href = wa; a.target = '_blank'; a.rel = 'noopener'; a.addEventListener('click', () => track('whatsapp_click')); });
+  }
   $$('[data-email]').forEach((a) => (a.href = `mailto:${B.email}`));
-  $$('[data-legal]').forEach((e) => (e.textContent = `© ${new Date().getFullYear()} ${B.legalName} · ${B.address}`));
+  $$('[data-email-text]').forEach((a) => (a.textContent = B.email));
+  $$('[data-legal]').forEach((e) => (e.textContent = [`© ${new Date().getFullYear()} ${B.legalName || cfg.brand}`, B.address].filter(Boolean).join(' · ')));
   if (!cfg.codEnabled) { $('#cod-opt').hidden = true; $$('.cod-note').forEach((e) => (e.hidden = true)); }
 }
 
@@ -285,7 +289,7 @@ async function openPayment() {
     notes: { orderNo: o.orderNo }, theme: { color: '#0f1b2d' },
     handler: async (resp) => {
       try { await api('/api/payments/verify', { orderNo: o.orderNo, ...resp }); orderDone(); }
-      catch (e) { paymentNotDone('We could not confirm the payment. If money was deducted, it will be auto-confirmed shortly – contact us on WhatsApp with your order number.'); }
+      catch (e) { paymentNotDone('We could not confirm the payment. If money was deducted, it will be auto-confirmed shortly – email us with your order number at ' + cfg.business.email); }
     },
     modal: { ondismiss: () => { if (!currentOrder.done) { api('/api/payments/failed', { orderNo: o.orderNo, reason: 'Payment window closed' }).catch(() => {}); track('payment_cancelled', { orderNo: o.orderNo }); paymentNotDone(); } } },
   });
@@ -332,10 +336,10 @@ function orderDone() {
     <div><span>Payment</span><b>${cod ? 'Cash on Delivery' : 'Paid online ✓'}</b></div>
     <div><span>Deliver to</span><b>${esc(o.customer.name)}, ${esc(o.customer.city)} ${esc(o.customer.pincode)}</b></div>`;
   $('#t-next').innerHTML = (cod
-    ? [`We’ll confirm your order on WhatsApp/call – please keep <b>+91 ${esc(o.customer.phone)}</b> reachable.`, `Keep <b>₹${rupee(o.amount)}</b> ready when the parcel arrives.`]
-    : ['Payment received – your order gets <b>priority dispatch</b>.', `Tracking details will come on WhatsApp at <b>+91 ${esc(o.customer.phone)}</b>.`])
+    ? [`We’ll confirm your order by call/WhatsApp – please keep <b>+91 ${esc(o.customer.phone)}</b> reachable.`, `Keep <b>₹${rupee(o.amount)}</b> ready when the parcel arrives.`]
+    : ['Payment received – your order gets <b>priority dispatch</b>.', `Tracking details will be sent to <b>+91 ${esc(o.customer.phone)}</b>.`])
     .concat([`Delivery in about ${cfg.deliveryDays}.`, 'Tip: start with 20–30 min a day.']).map((t) => `<li>${t}</li>`).join('');
-  $('#t-whatsapp').href = `https://wa.me/${cfg.business.whatsapp}?text=${encodeURIComponent(`Hi, my order number is ${o.orderNo}`)}`;
+  $('#t-help').href = `mailto:${cfg.business.email}?subject=${encodeURIComponent(`Order ${o.orderNo}`)}`;
   showPanel('thanks');
   sheet.hidden = false; backdrop.hidden = false; document.body.classList.add('lock');
   sheet.scrollTop = 0;

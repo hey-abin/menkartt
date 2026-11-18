@@ -32,7 +32,8 @@ Without Razorpay keys, online payment runs in **TEST MODE**: a "Simulate payment
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay → Account & Settings → API Keys |
 | `RAZORPAY_WEBHOOK_SECRET` | The secret you type when creating the webhook |
 | `META_PIXEL_ID` | Meta Events Manager → your Pixel ID (for ad tracking) |
-| `BUSINESS_NAME`, `SUPPORT_EMAIL`, `SUPPORT_PHONE`, `WHATSAPP_NUMBER`, `BUSINESS_ADDRESS` | Shown in the footer and policy pages. **Fill these with real details**; Razorpay checks them |
+| `SUPPORT_EMAIL` | Customer support email (shown in the footer, thank-you screen and policies) |
+| `BUSINESS_NAME`, `SUPPORT_PHONE`, `WHATSAPP_NUMBER`, `BUSINESS_ADDRESS` | Optional. Hidden on the site when empty (online-only dropshipping store). If Razorpay KYC asks for an address or phone on the website, add them here |
 | `COD_ENABLED` | `true` / `false` |
 
 Prices and packs are in `src/config.js` (`bundles`): 1 belt ₹399 online / ₹449 COD, 2 belts ₹699 / ₹749.

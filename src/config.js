@@ -41,11 +41,11 @@ export const config = {
   business: {
     brand: env('BRAND_NAME', 'Seedha'),
     tagline: env('BRAND_TAGLINE', 'Posture Corrector Belt for Men'),
-    legalName: env('BUSINESS_NAME', 'Your Business Name'),
-    email: env('SUPPORT_EMAIL', 'support@example.com'),
-    phone: env('SUPPORT_PHONE', '+91 90000 00000'),
-    whatsapp: env('WHATSAPP_NUMBER', '919000000000'), // digits only, with country code
-    address: env('BUSINESS_ADDRESS', 'Your full business address, City, State, PIN'),
+    legalName: env('BUSINESS_NAME', ''),          // optional
+    email: env('SUPPORT_EMAIL', 'support.menkartt2@gmail.com'),
+    phone: env('SUPPORT_PHONE', ''),              // optional – hidden when empty
+    whatsapp: env('WHATSAPP_NUMBER', ''),          // optional – digits with country code, hidden when empty
+    address: env('BUSINESS_ADDRESS', ''),         // optional – hidden when empty
   },
 
   // Offers. Prices are in rupees and are ALWAYS taken from here on the server (never from the browser).
