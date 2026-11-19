@@ -23,4 +23,4 @@ if (config.mongoUri) {
   if (fs.existsSync(f)) fs.rmSync(f);
   console.log('Local test data removed.');
 }
-console.log('Done – the next order will be SD1001.');
+console.log('Done – the next order will be MK1001.');
