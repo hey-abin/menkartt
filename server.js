@@ -32,10 +32,10 @@ app.use((req, res, next) => {
     "script-src 'self' https://checkout.razorpay.com https://connect.facebook.net",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
-    "img-src 'self' data: https://www.facebook.com https://*.razorpay.com",
+    "img-src 'self' data: https://www.facebook.com https://*.facebook.com https://*.razorpay.com",
     "media-src 'self'",
     "connect-src 'self' https://api.postalpincode.in https://*.razorpay.com https://www.facebook.com https://connect.facebook.net",
-    "frame-src https://api.razorpay.com https://checkout.razorpay.com",
+    "frame-src https://api.razorpay.com https://checkout.razorpay.com https://www.facebook.com",
   ].join('; '));
   next();
 });

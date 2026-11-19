@@ -17,12 +17,35 @@
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-truck" viewBox="0 0 24 24"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+    <symbol id="i-cash" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-card" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="m9 21 3-7 3 7"/><path d="m6 9 6 2 6-2"/><path d="M12 11v3"/></symbol>
+    <symbol id="i-shirt" viewBox="0 0 24 24"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></symbol>
+    <symbol id="i-ruler" viewBox="0 0 24 24"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2M11.5 9.5l2-2M8.5 6.5l2-2M17.5 15.5l2-2"/></symbol>
+    <symbol id="i-wind" viewBox="0 0 24 24"><path d="M12.8 19.6A2 2 0 1 0 14 16H2"/><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"/><path d="M9.8 4.4A2 2 0 1 1 11 8H2"/></symbol>
+    <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+    <symbol id="i-spine" viewBox="0 0 24 24"><path d="M12 2v20M8 18l4 4 4-4M8 6l4-4 4 4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  </defs>
+</svg>
 
 <!-- ====== Announcement ticker ====== -->
 <div class="ticker" aria-label="Offers">
   <div class="ticker-track">
-    <span>💳 Extra <b>₹50 OFF</b> on online payment</span><span>🚚 <b>Free delivery</b> across India</span><span>🔄 <b>7-day</b> easy replacement</span><span>💵 Cash on Delivery available</span>
-    <span aria-hidden="true">💳 Extra <b>₹50 OFF</b> on online payment</span><span aria-hidden="true">🚚 <b>Free delivery</b> across India</span><span aria-hidden="true">🔄 <b>7-day</b> easy replacement</span><span aria-hidden="true">💵 Cash on Delivery available</span>
+    <span><svg class="ic" aria-hidden="true"><use href="#i-card"/></svg> Extra <b>₹50 OFF</b> on online payment</span><span><svg class="ic" aria-hidden="true"><use href="#i-truck"/></svg> <b>Free delivery</b> across India</span><span><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg> <b>7-day</b> easy replacement</span><span><svg class="ic" aria-hidden="true"><use href="#i-cash"/></svg> Cash on Delivery available</span>
+    <span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-card"/></svg> Extra <b>₹50 OFF</b> on online payment</span><span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-truck"/></svg> <b>Free delivery</b> across India</span><span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg> <b>7-day</b> easy replacement</span><span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-cash"/></svg> Cash on Delivery available</span>
   </div>
 </div>
 
@@ -52,7 +75,7 @@
             <figure class="g-slide g-white"><img src="/media/hd-product.jpg" alt="Posture corrector belt product photo" width="750" height="750" loading="lazy"></figure>
             <figure class="g-slide"><img src="/media/hd-flatlay.jpg" alt="The belt laid flat" width="900" height="1196" loading="lazy"></figure>
           </div>
-          <span class="g-badge">🔥 Bestseller</span>
+          <span class="g-badge"><svg class="ic" aria-hidden="true"><use href="#i-flame"/></svg> Bestseller</span>
           <button class="g-nav g-prev" aria-label="Previous image">‹</button>
           <button class="g-nav g-next" aria-label="Next image">›</button>
         </div>
@@ -78,10 +101,10 @@
           <div class="packs" id="packs" role="radiogroup" aria-label="Choose pack"></div>
 
           <button class="btn btn-buy btn-xl shine" data-buy id="hero-cta"><span>Buy Now · ₹<span data-cta-price>399</span></span></button>
-          <p class="cta-note">💵 Cash on Delivery available at ₹<span data-price-cod>449</span> · 🚚 Ships in <span data-dispatch>24 hours</span></p>
+          <p class="cta-note"><svg class="ic" aria-hidden="true"><use href="#i-cash"/></svg> Cash on Delivery available at ₹<span data-price-cod>449</span> · <svg class="ic" aria-hidden="true"><use href="#i-truck"/></svg> Ships in <span data-dispatch>24 hours</span></p>
 
           <div class="mini-trust">
-            <div><i>🚚</i>Free<br>Delivery</div><div><i>🔄</i><span data-repl>7</span>-Day<br>Replacement</div><div><i>💵</i>Cash on<br>Delivery</div><div><i>🔒</i>Secure<br>Payment</div>
+            <div><i><svg class="ic" aria-hidden="true"><use href="#i-truck"/></svg></i>Free<br>Delivery</div><div><i><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg></i><span data-repl>7</span>-Day<br>Replacement</div><div><i><svg class="ic" aria-hidden="true"><use href="#i-cash"/></svg></i>Cash on<br>Delivery</div><div><i><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg></i>Secure<br>Payment</div>
           </div>
         </div>
       </div>
@@ -91,8 +114,8 @@
   <!-- ====== Marquee of benefits ====== -->
   <div class="strip">
     <div class="strip-track">
-      <span>✔ Straighter posture</span><span>✔ Less upper-back strain</span><span>✔ Invisible under shirts</span><span>✔ Free size, adjustable</span><span>✔ Breathable mesh</span><span>✔ Washable</span>
-      <span aria-hidden="true">✔ Straighter posture</span><span aria-hidden="true">✔ Less upper-back strain</span><span aria-hidden="true">✔ Invisible under shirts</span><span aria-hidden="true">✔ Free size, adjustable</span><span aria-hidden="true">✔ Breathable mesh</span><span aria-hidden="true">✔ Washable</span>
+      <span><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Straighter posture</span><span><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Less upper-back strain</span><span><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Invisible under shirts</span><span><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Free size, adjustable</span><span><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Breathable mesh</span><span><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Washable</span>
+      <span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Straighter posture</span><span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Less upper-back strain</span><span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Invisible under shirts</span><span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Free size, adjustable</span><span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Breathable mesh</span><span aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Washable</span>
     </div>
   </div>
 
@@ -156,9 +179,9 @@
         <p class="kicker reveal">How it works</p>
         <h2 class="reveal">Shoulders back. Spine straight. <span class="grad">All day.</span></h2>
         <div class="feature-list">
-          <div class="feature reveal"><span class="f-ico">↩︎</span><div><b>Pulls shoulders back</b><p>Crossed shoulder straps gently open your chest and stop rounding.</p></div></div>
-          <div class="feature reveal"><span class="f-ico">▮</span><div><b>Supports your spine</b><p>The back panel and waist band keep your upper and lower back aligned.</p></div></div>
-          <div class="feature reveal"><span class="f-ico">⏱</span><div><b>Builds the habit</b><p>Wear it 20–30 minutes a day and your body slowly remembers good posture.</p></div></div>
+          <div class="feature reveal"><span class="f-ico"><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg></span><div><b>Pulls shoulders back</b><p>Crossed shoulder straps gently open your chest and stop rounding.</p></div></div>
+          <div class="feature reveal"><span class="f-ico"><svg class="ic" aria-hidden="true"><use href="#i-spine"/></svg></span><div><b>Supports your spine</b><p>The back panel and waist band keep your upper and lower back aligned.</p></div></div>
+          <div class="feature reveal"><span class="f-ico"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg></span><div><b>Builds the habit</b><p>Wear it 20–30 minutes a day and your body slowly remembers good posture.</p></div></div>
         </div>
       </div>
     </div>
@@ -183,12 +206,12 @@
     <div class="container">
       <div class="sec-head reveal"><p class="kicker">Why people choose it</p><h2>Made for your everyday life</h2></div>
       <div class="benefit-grid">
-        <div class="benefit reveal"><span>🧍‍♂️</span><b>Instant upright posture</b><p>Feel the difference the moment you strap in.</p></div>
-        <div class="benefit reveal"><span>👔</span><b>Invisible under shirts</b><p>Slim, black design — wear it to office.</p></div>
-        <div class="benefit reveal"><span>📏</span><b>Free size, adjustable</b><p>Velcro straps fit most body types.</p></div>
-        <div class="benefit reveal"><span>🌬️</span><b>Breathable &amp; washable</b><p>Mesh panel stays comfortable for daily use.</p></div>
-        <div class="benefit reveal"><span>🚗</span><b>Desk, drive, gym</b><p>Use it wherever you sit or stand long.</p></div>
-        <div class="benefit reveal"><span>👫</span><b>For men &amp; women</b><p>Unisex, free-size fit for the whole family.</p></div>
+        <div class="benefit reveal"><span class="b-ico"><svg class="ic" aria-hidden="true"><use href="#i-person"/></svg></span><b>Instant upright posture</b><p>Feel the difference the moment you strap in.</p></div>
+        <div class="benefit reveal"><span class="b-ico"><svg class="ic" aria-hidden="true"><use href="#i-shirt"/></svg></span><b>Invisible under shirts</b><p>Slim, black design — wear it to office.</p></div>
+        <div class="benefit reveal"><span class="b-ico"><svg class="ic" aria-hidden="true"><use href="#i-ruler"/></svg></span><b>Free size, adjustable</b><p>Velcro straps fit most body types.</p></div>
+        <div class="benefit reveal"><span class="b-ico"><svg class="ic" aria-hidden="true"><use href="#i-wind"/></svg></span><b>Breathable &amp; washable</b><p>Mesh panel stays comfortable for daily use.</p></div>
+        <div class="benefit reveal"><span class="b-ico"><svg class="ic" aria-hidden="true"><use href="#i-car"/></svg></span><b>Desk, drive, gym</b><p>Use it wherever you sit or stand long.</p></div>
+        <div class="benefit reveal"><span class="b-ico"><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg></span><b>For men &amp; women</b><p>Unisex, free-size fit for the whole family.</p></div>
       </div>
     </div>
   </section>
@@ -227,7 +250,7 @@
     <div class="container">
       <div class="sec-head reveal"><p class="kicker">Today’s offer</p><h2>Your posture deserves better</h2></div>
       <div class="offer-grid" id="offer-cards"></div>
-      <div class="guarantee reveal"><span>🛡️</span><div><b><span data-repl>7</span>-day replacement promise</b><p>Damaged, defective or doesn’t fit? We replace it — no stress.</p></div></div>
+      <div class="guarantee reveal"><span class="g-ico"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg></span><div><b><span data-repl>7</span>-day replacement promise</b><p>Damaged, defective or doesn’t fit? We replace it — no stress.</p></div></div>
     </div>
   </section>
 
@@ -265,6 +288,9 @@
   <div class="sb-price"><b>₹<span data-cta-price>399</span></b> <s>₹<span data-price-cod>449</span></s><small>₹<span data-save>50</span> OFF online · COD available</small></div>
   <button class="btn btn-buy shine" data-buy>Buy Now</button>
 </div>
+
+<!-- Back to top -->
+<button class="to-top" id="to-top" aria-label="Back to top"><svg class="ic" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
 
 <!-- Recent order pop-up (real orders only) -->
 <div class="toast-order" id="toast-order" role="status" aria-live="polite" hidden>
@@ -329,11 +355,11 @@
 
     <p class="form-error" id="form-error" role="alert" hidden></p>
     <button class="btn btn-buy btn-block btn-xl" id="place-btn" type="submit">Pay ₹399 securely</button>
-    <p class="secure-note">🔒 Secured by Razorpay · <span data-repl>7</span>-day replacement · Free delivery</p>
+    <p class="secure-note"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> Secured by Razorpay · <span data-repl>7</span>-day replacement · Free delivery</p>
   </form>
 
   <div class="pay-retry" id="pay-retry" hidden>
-    <div class="retry-icon">⚠️</div>
+    <div class="retry-icon"><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg></div>
     <h3>Payment not completed</h3>
     <p>No money was taken. Your order is saved — finish it in one tap:</p>
     <button class="btn btn-buy btn-block btn-xl" id="retry-pay"><span>Try paying again · ₹<span id="retry-amt">399</span></span></button>
@@ -341,7 +367,7 @@
   </div>
 
   <div class="thanks" id="thanks" hidden>
-    <div class="tick">✓</div>
+    <div class="tick"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></div>
     <h3>Order confirmed!</h3>
     <p class="order-no">Order <b id="t-order">#</b></p>
     <div class="t-box" id="t-box"></div>

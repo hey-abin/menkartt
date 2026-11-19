@@ -142,9 +142,14 @@ function initGallery() {
     idx = Math.round(slides.scrollLeft / slides.clientWidth);
     items.forEach((s, j) => s.classList.toggle('active', j === idx));
     $$('button', thumbs).forEach((b, j) => b.classList.toggle('on', j === idx));
-    $$('button', thumbs)[idx]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // Scroll ONLY the thumbnail strip sideways. (scrollIntoView would also scroll the whole page back up to the gallery.)
+    const t = $$('button', thumbs)[idx];
+    if (t) thumbs.scrollTo({ left: t.offsetLeft - thumbs.clientWidth / 2 + t.offsetWidth / 2, behavior: 'smooth' });
   };
-  const auto = () => { clearInterval(timer); if (!reduceMotion) timer = setInterval(() => go(idx + 1), 4200); };
+  // Autoplay only while the gallery is on screen
+  let galleryVisible = true;
+  new IntersectionObserver(([e]) => { galleryVisible = e.isIntersecting; }, { threshold: 0.3 }).observe(slides);
+  const auto = () => { clearInterval(timer); if (!reduceMotion) timer = setInterval(() => { if (galleryVisible && !document.hidden) go(idx + 1); }, 4200); };
   slides.addEventListener('scroll', () => requestAnimationFrame(sync), { passive: true });
   thumbs.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { go(+b.dataset.i); auto(); } });
   $('.g-prev').addEventListener('click', () => { go(idx - 1); auto(); });
@@ -163,7 +168,7 @@ function initVideos() {
     $$('button', dots).forEach((d, j) => d.classList.toggle('on', j === i));
   };
   car.addEventListener('scroll', () => requestAnimationFrame(syncDots), { passive: true });
-  dots.addEventListener('click', (e) => { const i = e.target.dataset.i; if (i) cards[i].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); });
+  dots.addEventListener('click', (e) => { const i = e.target.dataset.i; if (i) car.scrollTo({ left: cards[i].offsetLeft - car.clientWidth / 2 + cards[i].offsetWidth / 2, behavior: 'smooth' }); });
   syncDots();
   cards.forEach((card) => {
     const v = $('video', card); if (!v) return;
@@ -272,13 +277,17 @@ function initScrollFX() {
   addEventListener('scroll', () => header.classList.toggle('scrolled', scrollY > 10), { passive: true });
   new IntersectionObserver(([e]) => { if (e.isIntersecting) { track('view_content', {}, true); if (!sentOnce.has('pixel_vc')) { sentOnce.add('pixel_vc'); pixel('track', 'ViewContent', { value: bestPrice(bundle), currency: 'INR', content_type: 'product', content_ids: [bundle.id] }); } } }, { threshold: 0.5 }).observe($('#offer'));
   setTimeout(updateSticky, 300);
+  // back-to-top button
+  const toTop = $('#to-top');
+  addEventListener('scroll', () => toTop.classList.toggle('show', scrollY > 700), { passive: true });
+  toTop.addEventListener('click', () => scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' }));
 }
 
 // ---------- checkout sheet ----------
 const sheet = $('#sheet'); const backdrop = $('#sheet-backdrop'); const form = $('#checkout');
 function showPanel(which) {
   form.hidden = which !== 'form'; $('#pay-retry').hidden = which !== 'retry'; $('#thanks').hidden = which !== 'thanks';
-  $('#sheet-title').textContent = which === 'thanks' ? 'Thank you! 🎉' : which === 'retry' ? 'Almost done' : 'Complete your order';
+  $('#sheet-title').textContent = which === 'thanks' ? 'Thank you!' : which === 'retry' ? 'Almost done' : 'Complete your order';
 }
 function openSheet(src) {
   track('add_to_cart', { bundle: bundle.id, from: src });
