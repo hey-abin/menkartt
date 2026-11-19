@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Write a review</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
 <style>
   .doc { padding: 22px 18px 60px; background: #fff; min-height: 80vh; }
@@ -14,12 +15,12 @@
 </style>
 </head>
 <body>
-<header class="header"><a class="logo" href="/"><span class="logo-mark">S</span><span data-brand>Seedha</span></a><a class="header-rating" href="/">← Shop</a></header>
+<header class="header"><div class="container header-in"><a class="logo" href="/store"><span class="logo-mark">M</span><span class="logo-word" data-brand>Menkartt</span></a><a class="header-rating" href="/store">← Shop</a></div></header>
 <main class="doc">
   <h1>How’s your belt?</h1>
-  <p class="muted">Your honest review helps other men decide. Only customers with an order number can post.</p>
+  <p class="muted">Your honest review helps others decide. Only customers with an order number can post.</p>
   <form id="rv" novalidate>
-    <label>Order number<input name="orderNo" placeholder="e.g. SD1001" required maxlength="20"></label>
+    <label>Order number<input name="orderNo" placeholder="e.g. MK1001" required maxlength="20"></label>
     <label>Mobile number used for the order<input name="phone" inputmode="numeric" maxlength="10" required></label>
     <label>Your first name<input name="name" maxlength="40"></label>
     <label>Rating</label>

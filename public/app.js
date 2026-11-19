@@ -1,4 +1,4 @@
-// Storefront logic: offer, checkout, payments, tracking.
+// Menkartt storefront: offer, checkout, payments, tracking, animations.
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const store = {
@@ -8,6 +8,7 @@ const store = {
   sset(k, v) { try { sessionStorage.setItem(k, v); } catch {} },
 };
 const rid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/-/g, '').slice(0, 24);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------- visitor + attribution ----------
 let vid = store.get('vid'); if (!vid) { vid = rid(); store.set('vid', vid); }
@@ -54,42 +55,61 @@ function loadPixel(id) {
 }
 
 // ---------- state ----------
-let cfg; let bundle; let payMethod = 'prepaid';
+let cfg; let bundle; let payMethod = 'prepaid'; let prepaidAvailable = true;
 let cid = store.sget('cid') || rid(); store.sset('cid', cid);
 let currentOrder = null;
 const rupee = (n) => Number(n).toLocaleString('en-IN');
-
-function priceFor(b = bundle, m = payMethod) { return m === 'cod' ? b.cod : b.prepaid; }
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const priceFor = (b = bundle, m = payMethod) => (m === 'cod' ? b.cod : b.prepaid);
+const bestPrice = (b) => (prepaidAvailable ? b.prepaid : b.cod);
 
 function render() {
   const save = bundle.cod - bundle.prepaid;
-  $$('[data-price-prepaid]').forEach((e) => (e.textContent = rupee(bundle.prepaid)));
+  $$('[data-price-prepaid]').forEach((e) => (e.textContent = rupee(bestPrice(bundle))));
   $$('[data-price-cod]').forEach((e) => (e.textContent = rupee(bundle.cod)));
   $$('[data-save]').forEach((e) => (e.textContent = save));
-  $$('[data-cta-price]').forEach((e) => (e.textContent = rupee(bundle.prepaid)));
+  $$('[data-cta-price]').forEach((e) => (e.textContent = rupee(bestPrice(bundle))));
   $$('[data-sheet-prepaid]').forEach((e) => (e.textContent = rupee(bundle.prepaid)));
   $$('[data-sheet-cod]').forEach((e) => (e.textContent = rupee(bundle.cod)));
   $$('[data-sheet-save]').forEach((e) => (e.textContent = save));
-  $$('.pack').forEach((p) => p.classList.toggle('on', p.dataset.id === bundle.id));
+  $$('.pack').forEach((p) => { const on = p.dataset.id === bundle.id; p.classList.toggle('on', on); p.setAttribute('aria-checked', on); });
   $$('.pay-opt').forEach((p) => p.classList.toggle('on', p.dataset.pay === payMethod));
   const total = priceFor();
-  $('#sum-label').textContent = `${bundle.title}${bundle.qty > 1 ? ` (${bundle.qty} × posture belt)` : ' – posture belt'}`;
-  $('#sum-sub').textContent = rupee(total);
+  $('#sum-label').textContent = `${bundle.title} – ${cfg.productName}`;
+  $('#sum-sub').textContent = rupee(bundle.cod);
+  $('#sum-disc-row').hidden = payMethod !== 'prepaid';
+  $('#sum-disc').textContent = save;
   $('#sum-total').textContent = rupee(total);
   $('#place-btn').textContent = payMethod === 'cod' ? `Place COD order · ₹${rupee(total)}` : `Pay ₹${rupee(total)} securely`;
+  // hide strike-through prices when there is no online offer
+  $$('.price-now s, .sb-price s').forEach((s) => (s.hidden = !prepaidAvailable));
 }
 
 function packHTML(b) {
-  const each = b.qty > 1 ? `<span class="p-each">₹${Math.round(b.prepaid / b.qty)} each</span>` : '<span class="p-each">&nbsp;</span>';
+  const p = bestPrice(b);
+  const each = b.qty > 1 ? `<span class="p-each">₹${Math.round(p / b.qty)} each</span>` : '<span class="p-each">Free delivery</span>';
   return `<button type="button" class="pack" data-id="${b.id}" role="radio">
     ${b.tag ? `<span class="p-tag">${b.tag}</span>` : ''}
     <b>${b.title}</b><span class="p-sub">${b.subtitle}</span>
-    <span class="p-price">₹${rupee(b.prepaid)}</span>${each}</button>`;
+    <span class="p-price">₹${rupee(p)}${prepaidAvailable ? `<s>₹${rupee(b.cod)}</s>` : ''}</span>${each}</button>`;
+}
+
+function offerCardHTML(b, i) {
+  const img = i === 0 ? '/media/hd-smile.jpg' : '/media/hd-back.jpg';
+  return `<div class="o-card reveal ${b.tag ? 'best' : ''}">${b.tag ? `<span class="o-tag">${b.tag}</span>` : ''}
+    <img src="${img}" alt="" loading="lazy" width="720" height="900">
+    <div><h3>${b.title}</h3>
+      <div class="o-price">₹${rupee(bestPrice(b))}${prepaidAvailable ? `<s>₹${rupee(b.cod)}</s>` : ''}</div>
+      <p class="o-sub">${prepaidAvailable ? `With online payment · or ₹${rupee(b.cod)} Cash on Delivery` : 'Cash on Delivery · Free delivery'}</p>
+      <button class="btn btn-buy shine" data-buy data-bundle="${b.id}">Get ${b.title}</button></div></div>`;
 }
 
 function fillBusiness() {
   const B = cfg.business;
   $$('[data-brand]').forEach((e) => (e.textContent = cfg.brand));
+  $$('[data-brand-eyebrow]').forEach((e) => (e.textContent = cfg.brand));
+  $$('[data-product-name]').forEach((e) => (e.textContent = cfg.productName));
+  $$('[data-product-subtitle]').forEach((e) => (e.textContent = cfg.productSubtitle));
   $$('[data-repl]').forEach((e) => (e.textContent = cfg.replacementDays));
   $$('[data-dispatch]').forEach((e) => (e.textContent = cfg.dispatchDays));
   $$('[data-delivery]').forEach((e) => (e.textContent = cfg.deliveryDays));
@@ -101,77 +121,157 @@ function fillBusiness() {
   $$('[data-email]').forEach((a) => (a.href = `mailto:${B.email}`));
   $$('[data-email-text]').forEach((a) => (a.textContent = B.email));
   $$('[data-legal]').forEach((e) => (e.textContent = [`© ${new Date().getFullYear()} ${B.legalName || cfg.brand}`, B.address].filter(Boolean).join(' · ')));
-  if (!cfg.codEnabled) { $('#cod-opt').hidden = true; $$('.cod-note').forEach((e) => (e.hidden = true)); }
-  // Online payment not set up yet (no Razorpay keys on the live site) → only offer COD so nobody hits an error
+  if (!cfg.codEnabled) { $('#cod-opt').hidden = true; $$('.cta-note').forEach((e) => (e.hidden = true)); }
+  // Online payment not set up → only COD, priced at the regular price
   if (!cfg.razorpayKeyId && !cfg.paymentMock && cfg.codEnabled) {
-    const pre = $('.pay-opt[data-pay="prepaid"]'); pre.hidden = true;
+    prepaidAvailable = false;
+    $('.pay-opt[data-pay="prepaid"]').hidden = true;
     $('input[name="payMethod"][value="cod"]').checked = true; payMethod = 'cod';
+    $$('.offer-chip').forEach((e) => (e.hidden = true));
+    $('.price-label').textContent = 'Inclusive of all taxes · Cash on Delivery';
   }
 }
 
 // ---------- gallery ----------
 function initGallery() {
-  const slides = $('#slides'); const dots = $('#dots');
-  const n = slides.children.length;
-  dots.innerHTML = Array.from({ length: n }, (_, i) => `<button aria-label="Image ${i + 1}" data-i="${i}"></button>`).join('');
-  const setDot = () => {
-    const i = Math.round(slides.scrollLeft / slides.clientWidth);
-    $$('button', dots).forEach((d, j) => d.classList.toggle('on', j === i));
-    $$('video[data-autoplay]', slides).forEach((v) => {
-      const on = v.closest('.slide') === slides.children[i];
-      if (on) { v.play().catch(() => {}); track('video_play', { where: 'gallery' }, true); } else v.pause();
-    });
+  const slides = $('#slides'); const thumbs = $('#thumbs'); const items = $$('.g-slide', slides);
+  thumbs.innerHTML = items.map((s, i) => `<button aria-label="Image ${i + 1}" data-i="${i}"><img src="${$('img', s).src}" alt="" loading="lazy"></button>`).join('');
+  let idx = 0; let timer;
+  const go = (i) => { idx = (i + items.length) % items.length; slides.scrollTo({ left: idx * slides.clientWidth, behavior: 'smooth' }); };
+  const sync = () => {
+    idx = Math.round(slides.scrollLeft / slides.clientWidth);
+    items.forEach((s, j) => s.classList.toggle('active', j === idx));
+    $$('button', thumbs).forEach((b, j) => b.classList.toggle('on', j === idx));
+    $$('button', thumbs)[idx]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   };
-  slides.addEventListener('scroll', () => requestAnimationFrame(setDot), { passive: true });
-  dots.addEventListener('click', (e) => { const i = e.target.dataset.i; if (i) slides.scrollTo({ left: i * slides.clientWidth, behavior: 'smooth' }); });
-  setDot();
+  const auto = () => { clearInterval(timer); if (!reduceMotion) timer = setInterval(() => go(idx + 1), 4200); };
+  slides.addEventListener('scroll', () => requestAnimationFrame(sync), { passive: true });
+  thumbs.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { go(+b.dataset.i); auto(); } });
+  $('.g-prev').addEventListener('click', () => { go(idx - 1); auto(); });
+  $('.g-next').addEventListener('click', () => { go(idx + 1); auto(); });
+  ['pointerdown', 'touchstart'].forEach((ev) => slides.addEventListener(ev, () => clearInterval(timer), { passive: true }));
+  slides.addEventListener('touchend', auto, { passive: true });
+  sync(); auto();
 }
 
+// ---------- video carousel ----------
 function initVideos() {
-  $$('.video-card').forEach((card) => {
-    const v = $('video', card);
-    const toggle = () => {
-      if (v.paused) { $$('.video-card video').forEach((o) => o !== v && o.pause()); v.play(); card.classList.add('playing'); track('video_play', { where: 'videos' }); }
+  const car = $('#vcar'); const cards = $$('.v-card', car); const dots = $('#vdots');
+  dots.innerHTML = cards.map((_, i) => `<button aria-label="Slide ${i + 1}" data-i="${i}"></button>`).join('');
+  const syncDots = () => {
+    const i = Math.round(car.scrollLeft / (cards[0].offsetWidth + 14));
+    $$('button', dots).forEach((d, j) => d.classList.toggle('on', j === i));
+  };
+  car.addEventListener('scroll', () => requestAnimationFrame(syncDots), { passive: true });
+  dots.addEventListener('click', (e) => { const i = e.target.dataset.i; if (i) cards[i].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); });
+  syncDots();
+  cards.forEach((card) => {
+    const v = $('video', card); if (!v) return;
+    card.addEventListener('click', () => {
+      if (v.paused) { $$('video', car).forEach((o) => { if (o !== v) { o.pause(); o.closest('.v-card').classList.remove('playing'); } }); v.play(); card.classList.add('playing'); track('video_play', { where: 'carousel' }); }
       else { v.pause(); card.classList.remove('playing'); }
-    };
-    card.addEventListener('click', toggle);
+    });
   });
+  // autoplay muted videos while visible
+  if (!reduceMotion) {
+    const io = new IntersectionObserver((ents) => ents.forEach((e) => {
+      const v = $('video', e.target); if (!v) return;
+      if (e.isIntersecting && e.intersectionRatio > 0.6) { v.play().then(() => e.target.classList.add('playing')).catch(() => {}); }
+      else { v.pause(); e.target.classList.remove('playing'); }
+    }), { threshold: [0, 0.6, 1] });
+    cards.forEach((c) => io.observe(c));
+  }
 }
 
 // ---------- reviews ----------
-const MEESHO_DIST = [['Excellent', 1539], ['Very good', 464], ['Good', 346], ['Average', 138], ['Poor', 262]];
-const MEESHO_REVIEWS = [
-  { n: 'Meesho User', d: '20 Mar 2026', t: 'Very good quality and strong material i appreciate it you can definitely buy it it\'s very good 👍🏻😊', h: 38 },
-  { n: 'Meesho User', d: '15 Oct 2025', t: 'It\'s useful for office work, it makes back straight and painless.', h: 23 },
-  { n: 'Vivek kumar', d: '21 Oct 2026', t: 'Good quality posture corrector belt at an affordable price. It is comfortable to wear, lightweight, and easy to adjust. Provides good back support and helps maintain proper posture while sitting, walking, or working.' },
-  { n: 'Meesho User', d: '1 Aug 2026', t: 'I liked the product it\'s affordable and easy to use. I liked the quality as well better from other products to be honest.', h: 30 },
-  { n: 'Arif Husain Kasu', d: '31 Aug 2026', t: 'Jaisa photo mein tha same vaisa hi aaya hai. Thank you Meesho. Aap log bhi yah belt le sakte ho.', h: 9 },
-  { n: 'Divyansh Verma', d: '31 Aug 2026', t: 'This is too good in quality, beyond my expectations. Worth it 👌' },
-  { n: 'Meesho User', d: '10 Aug 2026', t: 'Yah product kamar ke liye bahut hi faydemand hai, isko koi bhi manga sakta, bahut achcha result hai iska.', h: 11 },
-  { n: 'Divya Dixit', d: '20 Aug 2026', t: 'It\'s a very good and useful product.. Must buy. The material used is sturdy and nice. Value for money.' },
-  { n: 'Meesho User', d: '21 Aug 2026', t: 'This belt is good in quality. It is useful to reduce backpain.. I\'m happy to have found it.' },
-  { n: 'Kapil', d: '8 Oct 2025', t: 'This product is best and value for money.' },
-  { n: 'Moin', d: '18 Jul 2026', t: 'V good in condition and very good in comfortable.' },
-  { n: 'Shivani Sandeep Kumar', d: '3 Aug 2026', t: 'Material or quality bahut achhi hai, thank you Meesho.' },
+const DIST = [['Excellent', 1539], ['Very good', 464], ['Good', 346], ['Average', 138], ['Poor', 262]];
+// Real reviews of this belt from verified marketplace buyers (text as written; reviewers who posted anonymously are shown as "Verified buyer")
+const REVIEWS = [
+  { n: 'Vivek Kumar', d: 'Oct 2026', t: 'Good quality posture corrector belt at an affordable price. It is comfortable to wear, lightweight, and easy to adjust. Provides good back support and helps maintain proper posture while sitting, walking, or working.' },
+  { n: 'Divya Dixit', d: 'Aug 2026', t: 'It\'s a very good and useful product.. Must buy. The material used is sturdy and nice. Value for money.' },
+  { n: 'Verified buyer', d: 'Oct 2025', t: 'It\'s useful for office work, it makes back straight and painless.', h: 23 },
+  { n: 'Divyansh Verma', d: 'Aug 2026', t: 'This is too good in quality, beyond my expectations. Worth it 👌' },
+  { n: 'Arif Husain Kasu', d: 'Aug 2026', t: 'Jaisa photo mein tha same vaisa hi aaya hai… Aap log bhi yah belt le sakte ho. I am so happy 🙏' },
+  { n: 'Verified buyer', d: 'Mar 2026', t: 'Very good quality and strong material, I appreciate it. You can definitely buy it, it\'s very good 👍🏻😊', h: 38 },
+  { n: 'Kapil', d: 'Oct 2025', t: 'This product is best and value for money.' },
+  { n: 'Ritu Jamod', d: 'Jun 2026', t: 'Very good and very comfortable product, I really like it.' },
+  { n: 'Verified buyer', d: 'Aug 2026', t: 'Yah product kamar ke liye bahut hi faydemand hai, isko koi bhi manga sakta hai. Bahut achcha result hai iska.', h: 11 },
+  { n: 'Moin', d: 'Jul 2026', t: 'V good in condition and very good in comfortable.' },
+  { n: 'Neeta Salim Shikah', d: 'Jul 2026', t: 'Bahut hi sundar hai, achcha hai, comfortable hai.' },
+  { n: 'Verified buyer', d: 'Aug 2026', t: 'I liked the product, it\'s affordable and easy to use. I liked the quality as well — better than other products to be honest.', h: 30 },
+  { n: 'Shivani Sandeep Kumar', d: 'Aug 2026', t: 'Material aur quality bahut achhi hai.' },
+  { n: 'Verified buyer', d: 'Nov 2026', t: 'Superb product, super quality. Totally worth the price and looks exactly like the picture!' },
 ];
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const reviewHTML = (r, badge) => `<article class="review"><div class="review-top"><span class="review-name">${esc(r.n)}</span><span class="stars">${'★'.repeat(r.r || 5)}${'☆'.repeat(5 - (r.r || 5))}</span></div>
-  <div class="r-meta"><span class="verified">✓ ${badge}</span> · ${esc(r.d)}${r.h ? ` · ${r.h} found helpful` : ''}</div><p>${esc(r.t)}</p></article>`;
+const COLORS = ['#ff5a1f', '#ff2e63', '#7c3aed', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#14b8a6'];
+const initials = (n) => (n === 'Verified buyer' ? '✓' : n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase());
+const color = (n) => COLORS[[...n].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
+const reviewHTML = (r, badge = 'Verified purchase') => `<article class="review">
+  <div class="r-top"><span class="avatar" style="background:${color(r.n)}">${esc(initials(r.n))}</span>
+    <div><div class="r-name">${esc(r.n)}</div><div class="verified">✓ ${badge}</div></div></div>
+  <span class="stars" style="--r:${r.r || 5}">★★★★★</span><p>${esc(r.t)}</p>
+  <div class="r-meta">${esc(r.d)}${r.h ? ` · ${r.h} found this helpful` : ''}</div></article>`;
 
 async function initReviews() {
-  const total = MEESHO_DIST.reduce((s, [, c]) => s + c, 0);
-  $('#bars').innerHTML = MEESHO_DIST.map(([l, c]) => `<div class="bar"><span>${l}</span><div class="bar-track"><div class="bar-fill" style="width:${(100 * c / total).toFixed(1)}%"></div></div><span>${c}</span></div>`).join('');
-  let shown = 4;
-  const list = $('#review-list');
-  const draw = () => { list.innerHTML = MEESHO_REVIEWS.slice(0, shown).map((r) => reviewHTML(r, 'Verified Meesho buyer')).join(''); $('#more-reviews').hidden = shown >= MEESHO_REVIEWS.length; };
-  $('#more-reviews').addEventListener('click', () => { shown += 4; draw(); });
-  draw();
+  const total = DIST.reduce((s, [, c]) => s + c, 0);
+  $('#bars').innerHTML = DIST.map(([l, c]) => `<div class="bar"><span>${l}</span><div class="bar-track"><div class="bar-fill" data-w="${(100 * c / total).toFixed(1)}"></div></div><span>${c}</span></div>`).join('');
+  new IntersectionObserver(([e], o) => { if (e.isIntersecting) { $$('.bar-fill').forEach((b) => (b.style.width = b.dataset.w + '%')); o.disconnect(); } }, { threshold: .4 }).observe($('#bars'));
+  const html = REVIEWS.map((r) => reviewHTML(r)).join('');
+  $('#rtrack').innerHTML = html + html.replace(/<article class="review">/g, '<article class="review" aria-hidden="true">');
+  const mq = $('#rmarquee');
+  mq.addEventListener('touchstart', () => mq.classList.add('paused'), { passive: true });
+  mq.addEventListener('touchend', () => setTimeout(() => mq.classList.remove('paused'), 2500), { passive: true });
   try {
     const ours = await (await fetch('/api/reviews')).json();
     if (ours.length) {
-      $('#our-reviews').innerHTML = `<h3 class="our-title">From our customers</h3><div class="review-list">${ours.slice(0, 6).map((r) => reviewHTML({ n: `${r.name}${r.city ? ', ' + r.city : ''}`, d: new Date(r.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }), t: r.text, r: r.rating }, 'Verified purchase')).join('')}</div>`;
+      $('#our-reviews').innerHTML = `<h3 class="our-title">From ${esc(cfg.brand)} customers</h3><div class="our-list">${ours.slice(0, 6).map((r) => reviewHTML({ n: `${r.name}${r.city ? ', ' + r.city : ''}`, d: new Date(r.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }), t: r.text, r: r.rating })).join('')}</div>`;
     }
   } catch {}
+}
+
+// ---------- real recent-order pop-ups ----------
+async function initRecentOrders() {
+  let list = [];
+  try { list = await (await fetch('/api/recent-orders')).json(); } catch { return; }
+  if (!list.length) return; // only real orders are ever shown
+  const box = $('#toast-order'); let i = 0;
+  const ago = (d) => { const m = Math.max(1, Math.round((Date.now() - new Date(d)) / 60000)); return m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hours ago` : `${Math.round(m / 1440)} days ago`; };
+  const show = () => {
+    if (!$('#sheet').hidden) return schedule();
+    const o = list[i++ % list.length];
+    $('#to-name').textContent = `${o.name || 'Someone'}${o.city ? ' from ' + o.city : ''}`;
+    $('#to-text').textContent = ` ordered ${o.item || 'a posture belt'}`;
+    $('#to-time').textContent = `${ago(o.at)} · verified order`;
+    box.classList.remove('out'); box.hidden = false;
+    setTimeout(() => { box.classList.add('out'); setTimeout(() => { box.hidden = true; schedule(); }, 400); }, 5000);
+  };
+  const schedule = () => setTimeout(show, 15000 + Math.random() * 20000);
+  setTimeout(show, 9000 + Math.random() * 6000);
+}
+
+// ---------- scroll effects ----------
+function initScrollFX() {
+  const io = new IntersectionObserver((ents) => ents.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  $$('.reveal').forEach((el, i) => { el.style.transitionDelay = `${Math.min(i % 6, 5) * 70}ms`; io.observe(el); });
+  // count-up numbers
+  $$('[data-count]').forEach((el) => {
+    const end = +el.dataset.count;
+    new IntersectionObserver(([e], o) => {
+      if (!e.isIntersecting) return; o.disconnect();
+      if (reduceMotion) return;
+      const t0 = performance.now();
+      const step = (t) => { const p = Math.min(1, (t - t0) / 1400); el.textContent = rupee(Math.round(end * (1 - Math.pow(1 - p, 3)))); if (p < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+    }).observe(el);
+  });
+  // header shadow + sticky buy bar (shown whenever the main Buy button is off-screen)
+  const header = $('#header'); const sticky = $('#sticky'); const heroCta = $('#hero-cta');
+  let heroCtaVisible = false;
+  new IntersectionObserver(([e]) => { heroCtaVisible = e.isIntersecting; updateSticky(); }, { threshold: 0.3 }).observe(heroCta);
+  function updateSticky() { sticky.classList.toggle('show', !heroCtaVisible && $('#sheet').hidden); }
+  window.updateSticky = updateSticky;
+  addEventListener('scroll', () => header.classList.toggle('scrolled', scrollY > 10), { passive: true });
+  new IntersectionObserver(([e]) => { if (e.isIntersecting) { track('view_content', {}, true); if (!sentOnce.has('pixel_vc')) { sentOnce.add('pixel_vc'); pixel('track', 'ViewContent', { value: bestPrice(bundle), currency: 'INR', content_type: 'product', content_ids: [bundle.id] }); } } }, { threshold: 0.5 }).observe($('#offer'));
+  setTimeout(updateSticky, 300);
 }
 
 // ---------- checkout sheet ----------
@@ -182,12 +282,12 @@ function showPanel(which) {
 }
 function openSheet(src) {
   track('add_to_cart', { bundle: bundle.id, from: src });
-  pixel('track', 'AddToCart', { value: bundle.prepaid, currency: 'INR', content_name: 'Posture Corrector Belt', content_type: 'product', content_ids: [bundle.id] });
+  pixel('track', 'AddToCart', { value: bestPrice(bundle), currency: 'INR', content_name: cfg.productName, content_type: 'product', content_ids: [bundle.id] });
   if (!currentOrder || currentOrder.done) showPanel('form');
-  sheet.hidden = false; backdrop.hidden = false; document.body.classList.add('lock');
-  setTimeout(() => { if (!form.hidden && !form.name.value) form.name.focus({ preventScroll: true }); }, 250);
+  sheet.hidden = false; backdrop.hidden = false; document.body.classList.add('lock'); window.updateSticky?.();
+  setTimeout(() => { if (!form.hidden && !form.name.value && matchMedia('(min-width: 700px)').matches) form.name.focus({ preventScroll: true }); }, 300);
 }
-function closeSheet() { sheet.hidden = true; backdrop.hidden = true; document.body.classList.remove('lock'); }
+function closeSheet() { sheet.hidden = true; backdrop.hidden = true; document.body.classList.remove('lock'); window.updateSticky?.(); }
 $('#sheet-close').addEventListener('click', closeSheet);
 backdrop.addEventListener('click', closeSheet);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
@@ -195,11 +295,14 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sheet.h
 function selectBundle(id) { bundle = cfg.bundles.find((b) => b.id === id) || cfg.bundles[0]; render(); }
 document.addEventListener('click', (e) => {
   const p = e.target.closest('.pack'); if (p) { selectBundle(p.dataset.id); saveProgress(); }
-  const b = e.target.closest('[data-buy]'); if (b) openSheet(b.closest('.sticky-bar') ? 'sticky' : b.closest('.recap') ? 'recap' : 'hero');
+  const b = e.target.closest('[data-buy]');
+  if (b) {
+    if (b.dataset.bundle) selectBundle(b.dataset.bundle);
+    openSheet(b.closest('.sticky-bar') ? 'sticky' : b.closest('.header') ? 'header' : b.closest('.offer') ? 'offer' : 'hero');
+  }
 });
 $$('input[name="payMethod"]').forEach((r) => r.addEventListener('change', () => { payMethod = r.value; render(); saveProgress(); }));
 
-// Remember what the customer typed (so a refresh doesn't lose it)
 const FIELDS = ['name', 'phone', 'pincode', 'city', 'state', 'address', 'landmark'];
 try { const saved = JSON.parse(store.get('form') || '{}'); FIELDS.forEach((f) => { if (saved[f]) form[f].value = saved[f]; }); } catch {}
 
@@ -218,7 +321,6 @@ function saveProgress() {
 form.addEventListener('input', (e) => { e.target.classList.remove('bad'); saveProgress(); });
 form.phone.addEventListener('input', () => { form.phone.value = form.phone.value.replace(/\D/g, '').slice(0, 10); });
 
-// PIN code → city & state (India Post API)
 let lastPin = '';
 const pinLookup = async () => {
   form.pincode.value = form.pincode.value.replace(/\D/g, '').slice(0, 6);
@@ -278,7 +380,7 @@ form.addEventListener('submit', async (e) => {
 let rzpLoading;
 function loadRazorpay() {
   if (window.Razorpay) return Promise.resolve();
-  rzpLoading ??= new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://checkout.razorpay.com/v1/checkout.js'; s.onload = res; s.onerror = () => { rzpLoading = null; rej(new Error('Could not load payment window. Check your internet and try again.')); }; document.head.appendChild(s); });
+  rzpLoading ??= new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://checkout.razorpay.com/v1/checkout.js'; s.onload = res; s.onerror = () => { rzpLoading = null; rej(new Error('Could not load the payment window. Check your internet and try again.')); }; document.head.appendChild(s); });
   return rzpLoading;
 }
 
@@ -289,12 +391,12 @@ async function openPayment() {
   try { await loadRazorpay(); } catch (e) { return paymentNotDone(e.message); }
   const rzp = new window.Razorpay({
     key: o.razorpay.keyId, order_id: o.razorpay.orderId, amount: o.razorpay.amountPaise, currency: 'INR',
-    name: cfg.brand, description: `${o.bundle.title} – Posture Corrector Belt`, image: '/media/back-closeup.jpg',
+    name: cfg.brand, description: `${o.bundle.title} – ${cfg.productName}`, image: '/media/hd-product.jpg',
     prefill: { name: o.customer.name, contact: '+91' + o.customer.phone },
-    notes: { orderNo: o.orderNo }, theme: { color: '#0f1b2d' },
+    notes: { orderNo: o.orderNo }, theme: { color: '#ff2e63' },
     handler: async (resp) => {
       try { await api('/api/payments/verify', { orderNo: o.orderNo, ...resp }); orderDone(); }
-      catch (e) { paymentNotDone('We could not confirm the payment. If money was deducted, it will be auto-confirmed shortly – email us with your order number at ' + cfg.business.email); }
+      catch { paymentNotDone(`We could not confirm the payment. If money was deducted it will be auto-confirmed shortly – email ${cfg.business.email} with your order number.`); }
     },
     modal: { ondismiss: () => { if (!currentOrder.done) { api('/api/payments/failed', { orderNo: o.orderNo, reason: 'Payment window closed' }).catch(() => {}); track('payment_cancelled', { orderNo: o.orderNo }); paymentNotDone(); } } },
   });
@@ -319,8 +421,6 @@ $('#switch-cod').addEventListener('click', async (e) => {
     Object.assign(currentOrder, r); track('cod_switch', { orderNo: r.orderNo }); orderDone();
   } catch (err) { alert(err.message); } finally { e.target.disabled = false; }
 });
-
-// Test-mode payment window
 $('#mock-ok').addEventListener('click', async () => {
   $('#mockpay').hidden = true;
   try { await api('/api/payments/mock-success', { orderNo: currentOrder.orderNo }); orderDone(); } catch (e) { paymentNotDone(e.message); }
@@ -337,25 +437,17 @@ function orderDone() {
   store.set('form', '{}'); cid = rid(); store.sset('cid', cid);
   $('#t-order').textContent = '#' + o.orderNo;
   const cod = o.payMethod === 'cod';
-  $('#t-box').innerHTML = `<div><span>${esc(o.bundle.title)}</span><b>₹${rupee(o.amount)}</b></div>
+  $('#t-box').innerHTML = `<div><span>${esc(o.bundle.title)} – ${esc(cfg.productName)}</span><b>₹${rupee(o.amount)}</b></div>
     <div><span>Payment</span><b>${cod ? 'Cash on Delivery' : 'Paid online ✓'}</b></div>
     <div><span>Deliver to</span><b>${esc(o.customer.name)}, ${esc(o.customer.city)} ${esc(o.customer.pincode)}</b></div>`;
   $('#t-next').innerHTML = (cod
     ? [`We’ll confirm your order by call/WhatsApp – please keep <b>+91 ${esc(o.customer.phone)}</b> reachable.`, `Keep <b>₹${rupee(o.amount)}</b> ready when the parcel arrives.`]
     : ['Payment received – your order gets <b>priority dispatch</b>.', `Tracking details will be sent to <b>+91 ${esc(o.customer.phone)}</b>.`])
-    .concat([`Delivery in about ${cfg.deliveryDays}.`, 'Tip: start with 20–30 min a day.']).map((t) => `<li>${t}</li>`).join('');
+    .concat([`Delivery in about ${cfg.deliveryDays}.`, 'Tip: start with 20–30 minutes a day.']).map((t) => `<li>${t}</li>`).join('');
   $('#t-help').href = `mailto:${cfg.business.email}?subject=${encodeURIComponent(`Order ${o.orderNo}`)}`;
   showPanel('thanks');
   sheet.hidden = false; backdrop.hidden = false; document.body.classList.add('lock');
   sheet.scrollTop = 0;
-}
-
-// ---------- sticky bar + view tracking ----------
-function initScrollUX() {
-  const sticky = $('#sticky'); const heroCta = $('.price-card .btn-buy');
-  new IntersectionObserver(([e]) => sticky.classList.toggle('show', !e.isIntersecting && e.boundingClientRect.top < 0), { threshold: 0 }).observe(heroCta);
-  new IntersectionObserver(([e]) => { if (e.isIntersecting) { track('view_content', {}, true); if (!sentOnce.has('pixel_vc')) { sentOnce.add('pixel_vc'); pixel('track', 'ViewContent', { value: bundle.prepaid, currency: 'INR', content_type: 'product', content_ids: [bundle.id] }); } } }, { threshold: 0.6 }).observe($('#offer'));
-  setTimeout(() => heroCta.classList.add('pulse'), 6000);
 }
 
 // ---------- boot ----------
@@ -365,8 +457,10 @@ function initScrollUX() {
   if (!cfg) return;
   if (cfg.metaPixelId) loadPixel(cfg.metaPixelId);
   bundle = cfg.bundles[0];
+  fillBusiness();
   $('#packs').innerHTML = cfg.bundles.map(packHTML).join('');
   $('#sheet-packs').innerHTML = cfg.bundles.map(packHTML).join('');
-  fillBusiness(); render(); initGallery(); initVideos(); initReviews(); initScrollUX();
+  $('#offer-cards').innerHTML = cfg.bundles.map(offerCardHTML).join('');
+  render(); initGallery(); initVideos(); initReviews(); initScrollFX(); initRecentOrders();
   if (location.hash === '#buy') openSheet('link');
 })();

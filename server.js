@@ -177,7 +177,7 @@ app.post('/api/orders', rateLimit('orders', 8, 10 * 60_000), async (req, res) =>
 
     const attr = attributionFrom(b.attribution);
     const now = new Date();
-    const orderNo = `SD${await db.nextSeq('order')}`;
+    const orderNo = `MK${await db.nextSeq('order')}`;
     const amount = payMethod === 'cod' ? bundle.cod : bundle.prepaid;
     const order = {
       _id: orderNo, orderNo, createdAt: now, updatedAt: now,
@@ -262,6 +262,21 @@ app.post('/api/orders/:orderNo/switch-cod', rateLimit('switch', 10, 10 * 60_000)
   if (order.cid) await db.updateOne('checkouts', { _id: order.cid }, { status: 'converted', orderNo: order.orderNo, updatedAt: now });
   await db.insertOne('events', { _id: id(), vid: order.vid, type: 'purchase', ts: now, src: order.src, data: { orderNo: order.orderNo, amount: bundle.cod, payMethod: 'cod' } });
   res.json({ ok: true, orderNo: order.orderNo, amount: bundle.cod, payMethod: 'cod' });
+});
+
+// Real recent orders for the "just ordered" pop-ups: first name + city only, never phone/address
+const recentCache = { at: 0, data: [] };
+app.get('/api/recent-orders', async (_req, res) => {
+  if (Date.now() - recentCache.at > 60_000) {
+    const since = new Date(Date.now() - 14 * 864e5);
+    const list = await db.find('orders', { createdAt: { $gte: since } }, { sort: { createdAt: -1 }, limit: 40 });
+    recentCache.data = list
+      .filter((o) => !['pending_payment', 'cancelled', 'rto'].includes(o.status))
+      .slice(0, 15)
+      .map((o) => ({ name: (o.customer.name || '').trim().split(/\s+/)[0].slice(0, 20), city: o.customer.city, item: o.bundleTitle, at: o.createdAt }));
+    recentCache.at = Date.now();
+  }
+  res.set('Cache-Control', 'public, max-age=60').json(recentCache.data);
 });
 
 // Reviews: only real customers (order number + phone) can post; you approve them in the dashboard

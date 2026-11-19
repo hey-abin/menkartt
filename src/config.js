@@ -39,8 +39,8 @@ export const config = {
 
   // Business details – shown in the footer & policy pages (Razorpay checks these pages during KYC)
   business: {
-    brand: env('BRAND_NAME', 'Seedha'),
-    tagline: env('BRAND_TAGLINE', 'Posture Corrector Belt for Men'),
+    brand: env('STORE_NAME', 'Menkartt'),
+    tagline: env('STORE_TAGLINE', 'Posture Corrector Belt for Men & Women'),
     legalName: env('BUSINESS_NAME', ''),          // optional
     email: env('SUPPORT_EMAIL', 'support.menkartt2@gmail.com'),
     phone: env('SUPPORT_PHONE', ''),              // optional – hidden when empty
@@ -50,10 +50,13 @@ export const config = {
 
   // Offers. Prices are in rupees and are ALWAYS taken from here on the server (never from the browser).
   codEnabled: env('COD_ENABLED', 'true') === 'true',
+  // `cod` = regular price (paid with Cash on Delivery). `prepaid` = price after the ₹50 online-payment offer.
   bundles: [
     { id: 'single', title: '1 Belt', subtitle: 'For you', qty: 1, prepaid: 399, cod: 449 },
-    { id: 'duo', title: '2 Belts', subtitle: 'You + family / spare', qty: 2, prepaid: 699, cod: 749, tag: 'Best value' },
+    { id: 'duo', title: '2 Belts', subtitle: 'You + family', qty: 2, prepaid: 699, cod: 749, tag: 'Best value' },
   ],
+  productName: 'Posture Corrector Belt',
+  productSubtitle: 'Spine Straightener & Shoulder Alignment Belt · Men & Women',
   dispatchDays: '24 hours',
   deliveryDays: '3–7 days',
   replacementDays: 7,
@@ -70,6 +73,8 @@ export function publicConfig() {
     tagline: c.business.tagline,
     business: c.business,
     bundles: c.bundles,
+    productName: c.productName,
+    productSubtitle: c.productSubtitle,
     codEnabled: c.codEnabled,
     razorpayKeyId: c.razorpayKeyId || null,
     paymentMock: c.paymentMock && !c.razorpayKeyId,
