@@ -1,4 +1,5 @@
 const $ = (s, el = document) => el.querySelector(s);
+const LOGIN = '/' + location.pathname.split('/')[1] + '/login';
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const inr = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
@@ -8,7 +9,7 @@ const ago = (d) => { const m = Math.round((Date.now() - new Date(d)) / 60000); r
 let cfg = {};
 async function api(url, opts = {}) {
   const r = await fetch(url, { ...opts, headers: { 'Content-Type': 'application/json' } });
-  if (r.status === 401) { location.href = '/admin/login'; throw new Error('login'); }
+  if (r.status === 401) { location.href = LOGIN; throw new Error('login'); }
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Request failed');
   return r.json();
 }
@@ -185,7 +186,7 @@ $('#q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTime
 $('#status-filter').addEventListener('change', loadOrders);
 $('#range').addEventListener('change', loadStats);
 $('#refresh').addEventListener('click', () => { refreshAll(); toast('Refreshed'); });
-$('#logout').addEventListener('click', async () => { await api('/api/admin/logout', { method: 'POST' }); location.href = '/admin/login'; });
+$('#logout').addEventListener('click', async () => { await api('/api/admin/logout', { method: 'POST' }); location.href = LOGIN; });
 
 async function refreshAll() { await Promise.all([loadStats(), loadOrders(), loadAbandoned(), loadReviews()]).catch((e) => e.message !== 'login' && toast(e.message)); }
 (async () => {

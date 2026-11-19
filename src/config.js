@@ -24,6 +24,8 @@ export const config = {
   mongoDb: env('MONGODB_DB', 'seedha_store'),
 
   // Admin dashboard login
+  adminPath: '/' + env('ADMIN_PATH', 'haha').replace(/^\/+|\/+$/g, ''),   // dashboard URL, e.g. /haha
+  adminUsername: env('ADMIN_USERNAME', isProd ? '' : 'admin'),
   adminPassword: env('ADMIN_PASSWORD', isProd ? '' : 'admin123'),
   sessionSecret: env('SESSION_SECRET', isProd ? '' : 'dev-only-secret-change-me'),
 

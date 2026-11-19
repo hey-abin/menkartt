@@ -3,7 +3,7 @@
 A fast, mobile-first store for one product, with **Razorpay** online payments, **Cash on Delivery**, a **₹50 prepaid discount**, and a private **dashboard** for orders, ad clicks, the sales funnel, abandoned checkouts and reviews.
 
 - Store: `/`
-- Dashboard: `/admin` (password from `.env`)
+- Dashboard: `/haha` (login ID `ADMIN_USERNAME` + password `ADMIN_PASSWORD` from `.env`; change the path with `ADMIN_PATH`)
 - Policies (needed for Razorpay approval): `/policies`
 - Customer review form: `/review`
 
@@ -18,7 +18,7 @@ cp .env.example .env      # then fill in the values (see below)
 npm start
 ```
 
-Open http://localhost:3000 (store) and http://localhost:3000/admin (dashboard).
+Open http://localhost:3000 (store) and http://localhost:3000/haha (dashboard).
 
 Without Razorpay keys, online payment runs in **TEST MODE**: a "Simulate payment" window appears instead of Razorpay. Customers never see it once real keys are set. Without `MONGODB_URI`, data goes to a local test file.
 
@@ -27,7 +27,7 @@ Without Razorpay keys, online payment runs in **TEST MODE**: a "Simulate payment
 | Setting | What it is |
 |---|---|
 | `MONGODB_URI` | MongoDB Atlas connection string |
-| `ADMIN_PASSWORD` | Your dashboard password |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Your dashboard login ID and password |
 | `SESSION_SECRET` | Long random text (`openssl rand -hex 32`) |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay → Account & Settings → API Keys |
 | `RAZORPAY_WEBHOOK_SECRET` | The secret you type when creating the webhook |
@@ -69,7 +69,7 @@ Change `utm_campaign` for each ad set (e.g. `posture_office_v1`, `posture_gym_v1
 
 ## 5. Daily routine
 
-1. Open `/admin` → **Orders**.
+1. Open `/haha` → **Orders**.
 2. **COD orders**: tap *WhatsApp: confirm* and wait for "YES" before buying from the supplier. This alone cuts fake/refused COD orders a lot.
 3. Buy the belt on Meesho with the customer's name and address (https://www.meesho.com/s/p/9l6qc8).
 4. Paste the courier + tracking number, set status **Shipped**, tap *WhatsApp: shipped*.

@@ -29,13 +29,15 @@ export function login(req, res) {
   const ip = req.ip;
   const a = attempts.get(ip) || { n: 0, until: 0 };
   if (a.until > Date.now()) return res.status(429).json({ error: 'Too many attempts. Try again in 15 minutes.' });
+  const same = (a, b) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  const user = String(req.body?.username || '').trim().toLowerCase();
   const pw = String(req.body?.password || '');
-  const ok = config.adminPassword && config.sessionSecret && pw.length === config.adminPassword.length &&
-    crypto.timingSafeEqual(Buffer.from(pw), Buffer.from(config.adminPassword));
+  const ok = config.adminUsername && config.adminPassword && config.sessionSecret &&
+    same(user, config.adminUsername.toLowerCase()) & same(pw, config.adminPassword);
   if (!ok) {
     a.n += 1; if (a.n >= 5) { a.until = Date.now() + 15 * 60 * 1000; a.n = 0; }
     attempts.set(ip, a);
-    return res.status(401).json({ error: 'Wrong password' });
+    return res.status(401).json({ error: 'Wrong ID or password' });
   }
   attempts.delete(ip);
   const exp = String(Date.now() + TTL_MS);
@@ -51,5 +53,5 @@ export function logout(_req, res) {
 export function requireAdmin(req, res, next) {
   if (isAdmin(req)) return next();
   if (req.originalUrl.startsWith('/api/')) return res.status(401).json({ error: 'Login required' });
-  return res.redirect('/admin/login');
+  return res.redirect(`${config.adminPath}/login`);
 }

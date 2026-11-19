@@ -299,8 +299,9 @@ app.post('/api/reviews', rateLimit('reviews', 5, 60 * 60_000), async (req, res) 
 // ---------- admin ----------
 app.post('/api/admin/login', rateLimit('login', 20, 15 * 60_000), login);
 app.post('/api/admin/logout', logout);
-app.get('/admin/login', (req, res) => (isAdmin(req) ? res.redirect('/admin') : res.type('html').set('Cache-Control', 'no-store').send(PAGES.adminLogin)));
-app.get(['/admin', '/admin/'], requireAdmin, (_req, res) => res.type('html').set('Cache-Control', 'no-store').send(PAGES.adminIndex));
+const AP = config.adminPath;
+app.get(`${AP}/login`, (req, res) => (isAdmin(req) ? res.redirect(AP) : res.type('html').set('Cache-Control', 'no-store').send(PAGES.adminLogin)));
+app.get([AP, `${AP}/`], requireAdmin, (_req, res) => res.type('html').set('Cache-Control', 'no-store').send(PAGES.adminIndex));
 app.use('/api/admin', requireAdmin);
 
 const IST = 330 * 60_000;
