@@ -264,21 +264,6 @@ app.post('/api/orders/:orderNo/switch-cod', rateLimit('switch', 10, 10 * 60_000)
   res.json({ ok: true, orderNo: order.orderNo, amount: bundle.cod, payMethod: 'cod' });
 });
 
-// Real recent orders for the "just ordered" pop-ups: first name + city only, never phone/address
-const recentCache = { at: 0, data: [] };
-app.get('/api/recent-orders', async (_req, res) => {
-  if (Date.now() - recentCache.at > 60_000) {
-    const since = new Date(Date.now() - 14 * 864e5);
-    const list = await db.find('orders', { createdAt: { $gte: since } }, { sort: { createdAt: -1 }, limit: 40 });
-    recentCache.data = list
-      .filter((o) => !['pending_payment', 'cancelled', 'rto'].includes(o.status))
-      .slice(0, 15)
-      .map((o) => ({ name: (o.customer.name || '').trim().split(/\s+/)[0].slice(0, 20), city: o.customer.city, item: o.bundleTitle, at: o.createdAt }));
-    recentCache.at = Date.now();
-  }
-  res.set('Cache-Control', 'public, max-age=60').json(recentCache.data);
-});
-
 // Reviews: only real customers (order number + phone) can post; you approve them in the dashboard
 app.get('/api/reviews', async (_req, res) => {
   const r = await db.find('reviews', { approved: true }, { sort: { createdAt: -1 }, limit: 50 });

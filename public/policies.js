@@ -6,8 +6,6 @@ set('[data-legal-name]', (e) => (e.textContent = B.legalName || cfg.brand));
 if (B.address) { set('[data-address]', (e) => (e.textContent = B.address)); set('[data-address-wrap]', (e) => (e.hidden = false)); }
 if (B.phone) { set('[data-phone]', (e) => (e.textContent = B.phone)); set('[data-phone-wrap]', (e) => (e.hidden = false)); }
 set('[data-email-link]', (e) => { e.textContent = B.email; e.href = `mailto:${B.email}`; });
-set('[data-dispatch]', (e) => (e.textContent = cfg.dispatchDays));
-set('[data-delivery]', (e) => (e.textContent = cfg.deliveryDays));
 set('[data-repl]', (e) => (e.textContent = cfg.replacementDays));
 document.getElementById('updated').textContent = new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 if (location.hash) document.querySelector(location.hash)?.scrollIntoView();

@@ -102,8 +102,8 @@ async function loadOrders() {
   $('#orders').innerHTML = list.length ? list.map((o) => {
     const c = o.customer;
     const confirmMsg = o.payMethod === 'cod'
-      ? `Hi ${c.name.split(' ')[0]}, thank you for ordering the ${cfg.brand} posture belt (order ${o.orderNo}, ₹${o.amount} Cash on Delivery). Please reply YES to confirm and we will dispatch it today. Delivery address: ${c.address}, ${c.city} ${c.pincode}.`
-      : `Hi ${c.name.split(' ')[0]}, thank you for your order ${o.orderNo} of the ${cfg.brand} posture belt. Payment received ✅ We'll share tracking details soon.`;
+      ? `Hi ${c.name.split(' ')[0]}, thank you for ordering the ${cfg.brand} posture belt (order ${o.orderNo}, ₹${o.amount} Cash on Delivery). Please reply YES to confirm your order. Delivery address: ${c.address}, ${c.city} ${c.pincode}.`
+      : `Hi ${c.name.split(' ')[0]}, thank you for your order ${o.orderNo} of the ${cfg.brand} posture belt. Payment received ✅ We'll message you when it ships.`;
     const shipMsg = `Hi ${c.name.split(' ')[0]}, your ${cfg.brand} order ${o.orderNo} has been shipped${o.trackingId ? ` – tracking: ${o.trackingId}${o.courier ? ' (' + o.courier + ')' : ''}` : ''}. ${o.payMethod === 'cod' ? `Please keep ₹${o.amount} ready.` : ''}`;
     return `<div class="order" data-no="${esc(o.orderNo)}">
       <div class="o-top"><span><span class="o-no">${esc(o.orderNo)}</span> <span class="o-when">${when(o.createdAt)}</span></span><span class="o-amt">${inr(o.amount)}</span></div>

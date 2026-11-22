@@ -95,9 +95,9 @@ function packHTML(b) {
 }
 
 function offerCardHTML(b, i) {
-  const img = i === 0 ? '/media/hd-smile.jpg' : '/media/hd-back.jpg';
+  const img = i === 0 ? '/media/belt-front.jpg' : '/media/belt-straps.jpg';
   return `<div class="o-card reveal ${b.tag ? 'best' : ''}">${b.tag ? `<span class="o-tag">${b.tag}</span>` : ''}
-    <img src="${img}" alt="" loading="lazy" width="720" height="900">
+    <img src="${img}" alt="" loading="lazy" width="900" height="900">
     <div><h3>${b.title}</h3>
       <div class="o-price">₹${rupee(bestPrice(b))}${prepaidAvailable ? `<s>₹${rupee(b.cod)}</s>` : ''}</div>
       <p class="o-sub">${prepaidAvailable ? `With online payment · or ₹${rupee(b.cod)} Cash on Delivery` : 'Cash on Delivery · Free delivery'}</p>
@@ -111,8 +111,6 @@ function fillBusiness() {
   $$('[data-product-name]').forEach((e) => (e.textContent = cfg.productName));
   $$('[data-product-subtitle]').forEach((e) => (e.textContent = cfg.productSubtitle));
   $$('[data-repl]').forEach((e) => (e.textContent = cfg.replacementDays));
-  $$('[data-dispatch]').forEach((e) => (e.textContent = cfg.dispatchDays));
-  $$('[data-delivery]').forEach((e) => (e.textContent = cfg.deliveryDays));
   if (B.whatsapp) {
     const wa = `https://wa.me/${B.whatsapp}?text=${encodeURIComponent(`Hi ${cfg.brand}, I have a question about the posture belt`)}`;
     $$('[data-wa-wrap]').forEach((e) => (e.hidden = false));
@@ -189,30 +187,31 @@ function initVideos() {
 }
 
 // ---------- reviews ----------
-const DIST = [['Excellent', 1539], ['Very good', 464], ['Good', 346], ['Average', 138], ['Poor', 262]];
-// Real reviews of this belt from verified marketplace buyers (text as written; reviewers who posted anonymously are shown as "Verified buyer")
+const DIST = [['Excellent', 1556], ['Very good', 470], ['Good', 356], ['Average', 141], ['Poor', 264]];
+// Copied unedited from the first page of the Meesho listing (22 Nov 2026). Do not trim, correct or drop critical reviews.
 const REVIEWS = [
-  { n: 'Vivek Kumar', d: 'Oct 2026', t: 'Good quality posture corrector belt at an affordable price. It is comfortable to wear, lightweight, and easy to adjust. Provides good back support and helps maintain proper posture while sitting, walking, or working.' },
-  { n: 'Divya Dixit', d: 'Aug 2026', t: 'It\'s a very good and useful product.. Must buy. The material used is sturdy and nice. Value for money.' },
-  { n: 'Verified buyer', d: 'Oct 2025', t: 'It\'s useful for office work, it makes back straight and painless.', h: 23 },
-  { n: 'Divyansh Verma', d: 'Aug 2026', t: 'This is too good in quality, beyond my expectations. Worth it 👌' },
-  { n: 'Arif Husain Kasu', d: 'Aug 2026', t: 'Jaisa photo mein tha same vaisa hi aaya hai… Aap log bhi yah belt le sakte ho. I am so happy 🙏' },
-  { n: 'Verified buyer', d: 'Mar 2026', t: 'Very good quality and strong material, I appreciate it. You can definitely buy it, it\'s very good 👍🏻😊', h: 38 },
-  { n: 'Kapil', d: 'Oct 2025', t: 'This product is best and value for money.' },
-  { n: 'Ritu Jamod', d: 'Jun 2026', t: 'Very good and very comfortable product, I really like it.' },
-  { n: 'Verified buyer', d: 'Aug 2026', t: 'Yah product kamar ke liye bahut hi faydemand hai, isko koi bhi manga sakta hai. Bahut achcha result hai iska.', h: 11 },
-  { n: 'Moin', d: 'Jul 2026', t: 'V good in condition and very good in comfortable.' },
-  { n: 'Neeta Salim Shikah', d: 'Jul 2026', t: 'Bahut hi sundar hai, achcha hai, comfortable hai.' },
-  { n: 'Verified buyer', d: 'Aug 2026', t: 'I liked the product, it\'s affordable and easy to use. I liked the quality as well — better than other products to be honest.', h: 30 },
-  { n: 'Shivani Sandeep Kumar', d: 'Aug 2026', t: 'Material aur quality bahut achhi hai.' },
-  { n: 'Verified buyer', d: 'Nov 2026', t: 'Superb product, super quality. Totally worth the price and looks exactly like the picture!' },
+  { n: 'Meesho User', d: 'Mar 2026', t: 'Very good quality and strong material i appreciate it you can definitely buy it it\'s very good 👍🏻😊', h: 38 },
+  { n: 'Asmi Pawar', d: 'Jul 2026', t: 'Very bad quality and very product please don\'t don\'t buy', h: 2 },
+  { n: 'Meesho User', d: 'Aug 2026', t: 'I liked the product it\'s affordable and easy to use. I liked the quality as well better from other products to be honest.i hope you guys feel good after reading my review.', h: 31 },
+  { n: 'Arif Husain Kasu', d: 'Aug 2026', t: 'Jaisa photo mein tha same vaisa hi aaya Hai.thank you meesho. Aap log bhi yah belt Le sakte ho I am so happy thank you thank you thank you', h: 9 },
+  { n: 'Shivani Sandeep Kumar', d: 'Aug 2026', t: 'Material or quality BHT he achi h thank you messho', h: 1 },
+  { n: 'Meesho User', d: 'Jun 2026', t: 'Ye bohat acha hai aur aap ise purchase kar sakte hain', h: 10 },
+  { n: 'Falaknaaz Shaikh', d: 'Sep 2026', t: 'Nice thanks meesho guys u can buy it' },
+  { n: 'Neeta Salim Shikah', d: 'Jul 2026', t: 'bahut hi Sundar Hai Achcha hai comfortable hai', h: 3 },
+  { n: 'Kapil', d: 'Oct 2025', t: 'This product is best and value for money', h: 3 },
+  { n: 'Divyansh Verma', d: 'Aug 2026', t: 'This is too good in quality, beyond my expectations. Worth it 👌 thnkyou meesho' },
+  { n: 'Divya Dixit', d: 'Aug 2026', t: 'It\'s a very good and useful product.. Must buy. The material used is sturdy and nice. Value for money.', h: 1 },
+  { n: 'Moin', d: 'Jul 2026', t: 'V good in condition and very good in comfortable' },
+  { n: 'Ritu Jamod', d: 'Jun 2026', t: 'Very good and very comfortable product i really like it', h: 1 },
+  { n: 'Rahil Shaikh Kakrata', d: 'Oct 2025', t: 'This product is very expensive and excellent quality.' },
+  { n: 'Vivek kumar', d: 'Oct 2026', t: 'Good quality posture corrector belt at an affordable price. It is comfortable to wear, lightweight, and easy to adjust. Provides good back support and helps maintain proper posture while sitting, walking, or working. The material feels durable and offers good value for money. Overall, a useful product. Highly recommended!' },
 ];
 const COLORS = ['#ff5a1f', '#ff2e63', '#7c3aed', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#14b8a6'];
-const initials = (n) => (n === 'Verified buyer' ? '✓' : n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase());
+const initials = (n) => (n === 'Meesho User' ? 'M' : n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase());
 const color = (n) => COLORS[[...n].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
-const reviewHTML = (r, badge = 'Verified purchase') => `<article class="review">
+const reviewHTML = (r, badge = 'Meesho review') => `<article class="review">
   <div class="r-top"><span class="avatar" style="background:${color(r.n)}">${esc(initials(r.n))}</span>
-    <div><div class="r-name">${esc(r.n)}</div><div class="verified">✓ ${badge}</div></div></div>
+    <div><div class="r-name">${esc(r.n)}</div><div class="verified">${badge}</div></div></div>
   <span class="stars" style="--r:${r.r || 5}">★★★★★</span><p>${esc(r.t)}</p>
   <div class="r-meta">${esc(r.d)}${r.h ? ` · ${r.h} found this helpful` : ''}</div></article>`;
 
@@ -228,29 +227,9 @@ async function initReviews() {
   try {
     const ours = await (await fetch('/api/reviews')).json();
     if (ours.length) {
-      $('#our-reviews').innerHTML = `<h3 class="our-title">From ${esc(cfg.brand)} customers</h3><div class="our-list">${ours.slice(0, 6).map((r) => reviewHTML({ n: `${r.name}${r.city ? ', ' + r.city : ''}`, d: new Date(r.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }), t: r.text, r: r.rating })).join('')}</div>`;
+      $('#our-reviews').innerHTML = `<h3 class="our-title">From ${esc(cfg.brand)} customers</h3><div class="our-list">${ours.slice(0, 6).map((r) => reviewHTML({ n: `${r.name}${r.city ? ', ' + r.city : ''}`, d: new Date(r.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }), t: r.text, r: r.rating }, 'Menkartt order')).join('')}</div>`;
     }
   } catch {}
-}
-
-// ---------- real recent-order pop-ups ----------
-async function initRecentOrders() {
-  let list = [];
-  try { list = await (await fetch('/api/recent-orders')).json(); } catch { return; }
-  if (!list.length) return; // only real orders are ever shown
-  const box = $('#toast-order'); let i = 0;
-  const ago = (d) => { const m = Math.max(1, Math.round((Date.now() - new Date(d)) / 60000)); return m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hours ago` : `${Math.round(m / 1440)} days ago`; };
-  const show = () => {
-    if (!$('#sheet').hidden) return schedule();
-    const o = list[i++ % list.length];
-    $('#to-name').textContent = `${o.name || 'Someone'}${o.city ? ' from ' + o.city : ''}`;
-    $('#to-text').textContent = ` ordered ${o.item || 'a posture belt'}`;
-    $('#to-time').textContent = `${ago(o.at)} · verified order`;
-    box.classList.remove('out'); box.hidden = false;
-    setTimeout(() => { box.classList.add('out'); setTimeout(() => { box.hidden = true; schedule(); }, 400); }, 5000);
-  };
-  const schedule = () => setTimeout(show, 15000 + Math.random() * 20000);
-  setTimeout(show, 9000 + Math.random() * 6000);
 }
 
 // ---------- scroll effects ----------
@@ -400,7 +379,7 @@ async function openPayment() {
   try { await loadRazorpay(); } catch (e) { return paymentNotDone(e.message); }
   const rzp = new window.Razorpay({
     key: o.razorpay.keyId, order_id: o.razorpay.orderId, amount: o.razorpay.amountPaise, currency: 'INR',
-    name: cfg.brand, description: `${o.bundle.title} – ${cfg.productName}`, image: '/media/hd-product.jpg',
+    name: cfg.brand, description: `${o.bundle.title} – ${cfg.productName}`, image: '/media/belt-back.jpg',
     prefill: { name: o.customer.name, contact: '+91' + o.customer.phone },
     notes: { orderNo: o.orderNo }, theme: { color: '#ff2e63' },
     handler: async (resp) => {
@@ -450,9 +429,9 @@ function orderDone() {
     <div><span>Payment</span><b>${cod ? 'Cash on Delivery' : 'Paid online ✓'}</b></div>
     <div><span>Deliver to</span><b>${esc(o.customer.name)}, ${esc(o.customer.city)} ${esc(o.customer.pincode)}</b></div>`;
   $('#t-next').innerHTML = (cod
-    ? [`We’ll confirm your order by call/WhatsApp – please keep <b>+91 ${esc(o.customer.phone)}</b> reachable.`, `Keep <b>₹${rupee(o.amount)}</b> ready when the parcel arrives.`]
-    : ['Payment received – your order gets <b>priority dispatch</b>.', `Tracking details will be sent to <b>+91 ${esc(o.customer.phone)}</b>.`])
-    .concat([`Delivery in about ${cfg.deliveryDays}.`, 'Tip: start with 20–30 minutes a day.']).map((t) => `<li>${t}</li>`).join('');
+    ? [`We may contact you to confirm – please keep <b>+91 ${esc(o.customer.phone)}</b> reachable.`, `Keep <b>₹${rupee(o.amount)}</b> ready when the parcel arrives.`]
+    : ['Payment received.'])
+    .concat(['Delivery time depends on your PIN code. Email us your order number for an update.', 'Tip: start with 20–30 minutes a day.']).map((t) => `<li>${t}</li>`).join('');
   $('#t-help').href = `mailto:${cfg.business.email}?subject=${encodeURIComponent(`Order ${o.orderNo}`)}`;
   showPanel('thanks');
   sheet.hidden = false; backdrop.hidden = false; document.body.classList.add('lock');
@@ -470,6 +449,6 @@ function orderDone() {
   $('#packs').innerHTML = cfg.bundles.map(packHTML).join('');
   $('#sheet-packs').innerHTML = cfg.bundles.map(packHTML).join('');
   $('#offer-cards').innerHTML = cfg.bundles.map(offerCardHTML).join('');
-  render(); initGallery(); initVideos(); initReviews(); initScrollFX(); initRecentOrders();
+  render(); initGallery(); initVideos(); initReviews(); initScrollFX();
   if (location.hash === '#buy') openSheet('link');
 })();

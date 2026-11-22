@@ -87,9 +87,9 @@ If neither works for you, set `COD_ENABLED=false` and the store becomes prepaid-
 
 ## 6. Why the page is built this way
 
-- **Problem → solution → proof → offer**: the visitor first sees their own pain (desk slouch), then the fix, then proof (before/after, video, 2,749 ratings), then a simple offer.
+- **Problem → solution → proof → offer**: the visitor first sees their own pain (desk slouch), then the fix, then proof (seller photos and Meesho reviews, credited to Meesho), then a simple offer.
 - **One action**: only one thing to do on the page (Buy Now), with a sticky buy bar always within thumb reach.
-- **Prepaid nudge**: online payment is pre-selected and shown as "Save ₹50 + priority dispatch". COD stays available, so nobody leaves for lack of it.
+- **Prepaid nudge**: online payment is pre-selected and shown as "Save ₹50". COD stays available, so nobody leaves for lack of it.
 - **Risk reversal**: free delivery, COD, 7-day replacement and Razorpay security are shown next to every buy button.
 - **Low friction checkout**: one bottom sheet, 6 fields, PIN code fills city and state, details remembered if the page reloads.
 - **Sale rescue**: if a payment fails or is closed, the customer can retry or switch to COD in one tap.

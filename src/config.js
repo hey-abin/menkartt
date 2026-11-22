@@ -58,9 +58,7 @@ export const config = {
     { id: 'duo', title: '2 Belts', subtitle: 'You + family', qty: 2, prepaid: 699, cod: 749, tag: 'Best value' },
   ],
   productName: 'Posture Corrector Belt',
-  productSubtitle: 'Spine Straightener & Shoulder Alignment Belt · Men & Women',
-  dispatchDays: '24 hours',
-  deliveryDays: '3–7 days',
+  productSubtitle: 'Adjustable Shoulder & Back Support · Men & Women',
   replacementDays: 7,
 };
 
@@ -81,8 +79,6 @@ export function publicConfig() {
     razorpayKeyId: c.razorpayKeyId || null,
     paymentMock: c.paymentMock && !c.razorpayKeyId,
     metaPixelId: c.metaPixelId || null,
-    dispatchDays: c.dispatchDays,
-    deliveryDays: c.deliveryDays,
     replacementDays: c.replacementDays,
   };
 }
