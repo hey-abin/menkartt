@@ -114,7 +114,7 @@ async function markPaid(order, paymentId, via) {
 app.get('/api/config', (_req, res) => res.json(publicConfig()));
 
 const EVENT_TYPES = new Set(['page_view', 'view_content', 'video_play', 'add_to_cart', 'checkout_start',
-  'payment_initiated', 'payment_failed', 'payment_cancelled', 'cod_switch', 'whatsapp_click']);
+  'payment_initiated', 'payment_failed', 'payment_cancelled', 'cod_switch', 'whatsapp_click', 'cod_nudge_shown', 'cod_nudge_to_online']);
 
 app.post('/api/track', rateLimit('track', 120, 60_000), async (req, res) => {
   try {

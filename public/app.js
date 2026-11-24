@@ -207,11 +207,11 @@ const REVIEWS = [
   { n: 'Vivek kumar', d: 'Oct 2026', t: 'Good quality posture corrector belt at an affordable price. It is comfortable to wear, lightweight, and easy to adjust. Provides good back support and helps maintain proper posture while sitting, walking, or working. The material feels durable and offers good value for money. Overall, a useful product. Highly recommended!' },
 ];
 const COLORS = ['#ff5a1f', '#ff2e63', '#7c3aed', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#14b8a6'];
-const initials = (n) => (n === 'Meesho User' ? 'M' : n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase());
+const initials = (n) => (n === 'Meesho User' ? 'VB' : n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase());
 const color = (n) => COLORS[[...n].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
 const reviewHTML = (r, badge = 'Meesho review') => `<article class="review">
   <div class="r-top"><span class="avatar" style="background:${color(r.n)}">${esc(initials(r.n))}</span>
-    <div><div class="r-name">${esc(r.n)}</div><div class="verified">${badge}</div></div></div>
+    <div><div class="r-name">${esc(r.n === 'Meesho User' ? 'Verified buyer' : r.n)}</div><div class="verified">${badge}</div></div></div>
   <span class="stars" style="--r:${r.r || 5}">★★★★★</span><p>${esc(r.t)}</p>
   <div class="r-meta">${esc(r.d)}${r.h ? ` · ${r.h} found this helpful` : ''}</div></article>`;
 
@@ -352,6 +352,7 @@ form.addEventListener('submit', async (e) => {
     const names = { name: 'your name', phone: 'a valid 10-digit mobile number', pincode: 'a 6-digit PIN code', city: 'city', state: 'state', address: 'your full address' };
     return showError(`Please enter ${bad.map((b) => names[b]).join(', ')}.`, bad);
   }
+  if (payMethod === 'cod' && prepaidAvailable && !codNudged && bundle.cod > bundle.prepaid) return showCodNudge();
   const btn = $('#place-btn'); btn.disabled = true; const label = btn.textContent; btn.textContent = 'Please wait…';
   try {
     const res = await api('/api/orders', { cid, vid, bundleId: bundle.id, payMethod, customer: v, attribution });
@@ -363,6 +364,31 @@ form.addEventListener('submit', async (e) => {
     showError(err.message, err.fields || []);
   } finally { btn.disabled = false; btn.textContent = label; }
 });
+
+// ---------- COD → online nudge (once per checkout) ----------
+let codNudged = false;
+function showCodNudge() {
+  codNudged = true;
+  const save = rupee(bundle.cod - bundle.prepaid);
+  ['#cn-save', '#cn-save2'].forEach((id) => ($(id).textContent = save));
+  ['#cn-pre', '#cn-pre2'].forEach((id) => ($(id).textContent = rupee(bundle.prepaid)));
+  ['#cn-cod', '#cn-cod2'].forEach((id) => ($(id).textContent = rupee(bundle.cod)));
+  $('#cod-nudge').hidden = false;
+  track('cod_nudge_shown', { bundleId: bundle.id });
+  $('#cn-online').focus();
+}
+function closeCodNudge(toOnline) {
+  $('#cod-nudge').hidden = true;
+  if (toOnline) {
+    track('cod_nudge_to_online', { bundleId: bundle.id });
+    payMethod = 'prepaid';
+    const r = $('input[name="payMethod"][value="prepaid"]'); if (r) r.checked = true;
+    render(); saveProgress();
+  }
+  form.requestSubmit();
+}
+$('#cn-online').addEventListener('click', () => closeCodNudge(true));
+$('#cn-keep').addEventListener('click', () => closeCodNudge(false));
 
 // ---------- payment ----------
 let rzpLoading;
