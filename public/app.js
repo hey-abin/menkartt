@@ -209,9 +209,10 @@ const REVIEWS = [
 const COLORS = ['#ff5a1f', '#ff2e63', '#7c3aed', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#14b8a6'];
 const initials = (n) => (n === 'Meesho User' ? 'VB' : n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase());
 const color = (n) => COLORS[[...n].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
-const reviewHTML = (r, badge = 'Meesho review') => `<article class="review">
+// Source is stated once in the section heading and note, so Meesho cards carry no per-card badge.
+const reviewHTML = (r, badge = '') => `<article class="review">
   <div class="r-top"><span class="avatar" style="background:${color(r.n)}">${esc(initials(r.n))}</span>
-    <div><div class="r-name">${esc(r.n === 'Meesho User' ? 'Verified buyer' : r.n)}</div><div class="verified">${badge}</div></div></div>
+    <div><div class="r-name">${esc(r.n === 'Meesho User' ? 'Verified buyer' : r.n)}</div>${badge ? `<div class="verified">${badge}</div>` : ''}</div></div>
   ${r.r ? `<span class="stars" style="--r:${r.r}" aria-label="${r.r} out of 5">★★★★★</span>` : ''}<p>${esc(r.t)}</p>
   <div class="r-meta">${esc(r.d)}${r.h ? ` · ${r.h} found this helpful` : ''}</div></article>`;
 
@@ -239,15 +240,36 @@ function initReviewRow() {
   dots.addEventListener('click', (e) => { if (e.target.dataset.i) { go(+e.target.dataset.i); hold(); } });
   $('#rprev').addEventListener('click', () => { go(idx() - 1); hold(); });
   $('#rnext').addEventListener('click', () => { go(idx() + 1); hold(); });
-  ['pointerdown', 'touchstart', 'wheel', 'focusin'].forEach((ev) => sc.addEventListener(ev, () => hold(), { passive: true }));
-  sc.addEventListener('mouseenter', () => hold(60000));
-  sc.addEventListener('mouseleave', () => hold(2500));
-  new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0.3 }).observe(sc);
-  if (!reduceMotion) setInterval(() => {
-    if (!visible || Date.now() < pausedUntil || document.hidden) return;
-    const atEnd = sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 8;
-    go(atEnd ? 0 : idx() + 1);
-  }, 3800);
+  // touching/swiping pauses the drift; it resumes ~3 s after the finger lifts
+  let touching = false;
+  sc.addEventListener('touchstart', () => { touching = true; hold(600000); }, { passive: true });
+  sc.addEventListener('touchend', () => { touching = false; hold(3000); }, { passive: true });
+  ['pointerdown', 'wheel', 'focusin'].forEach((ev) => sc.addEventListener(ev, () => { if (!touching) hold(3000); }, { passive: true }));
+  // hover-pause only with a real mouse: phones fire a fake mouseenter on tap and never a mouseleave
+  sc.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') hold(600000); });
+  sc.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hold(1500); });
+  new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0.2 }).observe(sc);
+  // continuous auto-scroll (smooth drift) alongside manual swiping
+  if (!reduceMotion) {
+    const SPEED = 40; // px per second
+    let pos = sc.scrollLeft; let last = performance.now(); let rewinding = false;
+    const tick = () => {
+      const now = performance.now(); const dt = Math.min(now - last, 100) / 1000; last = now;
+      const rect = sc.getBoundingClientRect(); visible = rect.bottom > 0 && rect.top < innerHeight;
+      if (visible && !document.hidden && Date.now() >= pausedUntil && !rewinding) {
+        if (Math.abs(sc.scrollLeft - pos) > 2) pos = sc.scrollLeft; // the visitor moved it: continue from there
+        const max = sc.scrollWidth - sc.clientWidth;
+        if (pos >= max - 1) {
+          rewinding = true;
+          setTimeout(() => { sc.scrollTo({ left: 0, behavior: 'smooth' }); setTimeout(() => { pos = 0; rewinding = false; }, 1400); }, 1500);
+        } else {
+          pos = Math.min(max, pos + SPEED * dt);
+          sc.scrollLeft = pos;
+        }
+      } else if (!rewinding) pos = sc.scrollLeft;
+    };
+    setInterval(tick, 33); // ~30 fps; a timer keeps working in in-app browsers that throttle animation frames
+  }
   sync();
 }
 

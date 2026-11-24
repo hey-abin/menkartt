@@ -434,3 +434,6 @@ body.lock { overflow: hidden; }
 .r-next { right: 6px; }
 .r-dots { margin-top: 2px; }
 @media (min-width: 900px) { .r-nav { display: grid; place-items: center; } .r-scroller { padding: 6px 60px 14px; scroll-padding: 0 60px; } }
+
+/* continuous drift needs free scrolling (snapping would fight the auto-scroll) */
+.r-scroller { scroll-snap-type: none; }
