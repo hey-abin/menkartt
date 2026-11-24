@@ -212,18 +212,58 @@ const color = (n) => COLORS[[...n].reduce((a, c) => a + c.charCodeAt(0), 0) % CO
 const reviewHTML = (r, badge = 'Meesho review') => `<article class="review">
   <div class="r-top"><span class="avatar" style="background:${color(r.n)}">${esc(initials(r.n))}</span>
     <div><div class="r-name">${esc(r.n === 'Meesho User' ? 'Verified buyer' : r.n)}</div><div class="verified">${badge}</div></div></div>
-  <span class="stars" style="--r:${r.r || 5}">★★★★★</span><p>${esc(r.t)}</p>
+  ${r.r ? `<span class="stars" style="--r:${r.r}" aria-label="${r.r} out of 5">★★★★★</span>` : ''}<p>${esc(r.t)}</p>
   <div class="r-meta">${esc(r.d)}${r.h ? ` · ${r.h} found this helpful` : ''}</div></article>`;
+
+// swipeable review row: manual swipe/arrows, gentle auto-advance that pauses while the visitor interacts
+function initReviewRow() {
+  const sc = $('#rscroll'); const dots = $('#rdots');
+  sc.innerHTML = REVIEWS.map((r) => reviewHTML(r)).join('');
+  const cards = $$('.review', sc);
+  let pausedUntil = 0; let visible = false;
+  const hold = (ms = 9000) => { pausedUntil = Date.now() + ms; };
+  cards.forEach((c) => {
+    const p = $('p', c); p.classList.add('clamp');
+    if (p.scrollHeight > p.clientHeight + 2) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'r-more'; b.textContent = 'Read more';
+      b.addEventListener('click', () => { const closed = p.classList.toggle('clamp'); b.textContent = closed ? 'Read more' : 'Show less'; hold(20000); });
+      p.after(b);
+    } else p.classList.remove('clamp');
+  });
+  const step = () => cards[0].offsetWidth + 14;
+  const idx = () => Math.round(sc.scrollLeft / step());
+  dots.innerHTML = cards.map((_, i) => `<button type="button" aria-label="Review ${i + 1}" data-i="${i}"></button>`).join('');
+  const sync = () => $$('button', dots).forEach((d, j) => d.classList.toggle('on', j === idx()));
+  const go = (i) => sc.scrollTo({ left: Math.max(0, Math.min(i, cards.length - 1)) * step(), behavior: 'smooth' });
+  sc.addEventListener('scroll', () => requestAnimationFrame(sync), { passive: true });
+  dots.addEventListener('click', (e) => { if (e.target.dataset.i) { go(+e.target.dataset.i); hold(); } });
+  $('#rprev').addEventListener('click', () => { go(idx() - 1); hold(); });
+  $('#rnext').addEventListener('click', () => { go(idx() + 1); hold(); });
+  ['pointerdown', 'touchstart', 'wheel', 'focusin'].forEach((ev) => sc.addEventListener(ev, () => hold(), { passive: true }));
+  sc.addEventListener('mouseenter', () => hold(60000));
+  sc.addEventListener('mouseleave', () => hold(2500));
+  new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0.3 }).observe(sc);
+  if (!reduceMotion) setInterval(() => {
+    if (!visible || Date.now() < pausedUntil || document.hidden) return;
+    const atEnd = sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 8;
+    go(atEnd ? 0 : idx() + 1);
+  }, 3800);
+  sync();
+}
+
+// product video: autoplay muted while visible; one tap turns the sound on
+function initProductVideo() {
+  const v = $('#pvideo'); const btn = $('#psound'); if (!v) return;
+  btn.addEventListener('click', () => { v.muted = false; v.currentTime = 0; v.play().catch(() => {}); btn.hidden = true; v.controls = true; track('video_play', { where: 'product-video' }); });
+  if (reduceMotion) { v.controls = true; return; }
+  new IntersectionObserver(([e]) => { if (e.isIntersecting) v.play().catch(() => {}); else v.pause(); }, { threshold: 0.5 }).observe(v);
+}
 
 async function initReviews() {
   const total = DIST.reduce((s, [, c]) => s + c, 0);
   $('#bars').innerHTML = DIST.map(([l, c]) => `<div class="bar"><span>${l}</span><div class="bar-track"><div class="bar-fill" data-w="${(100 * c / total).toFixed(1)}"></div></div><span>${c}</span></div>`).join('');
   new IntersectionObserver(([e], o) => { if (e.isIntersecting) { $$('.bar-fill').forEach((b) => (b.style.width = b.dataset.w + '%')); o.disconnect(); } }, { threshold: .4 }).observe($('#bars'));
-  const html = REVIEWS.map((r) => reviewHTML(r)).join('');
-  $('#rtrack').innerHTML = html + html.replace(/<article class="review">/g, '<article class="review" aria-hidden="true">');
-  const mq = $('#rmarquee');
-  mq.addEventListener('touchstart', () => mq.classList.add('paused'), { passive: true });
-  mq.addEventListener('touchend', () => setTimeout(() => mq.classList.remove('paused'), 2500), { passive: true });
+  initReviewRow();
   try {
     const ours = await (await fetch('/api/reviews')).json();
     if (ours.length) {
@@ -475,6 +515,6 @@ function orderDone() {
   $('#packs').innerHTML = cfg.bundles.map(packHTML).join('');
   $('#sheet-packs').innerHTML = cfg.bundles.map(packHTML).join('');
   $('#offer-cards').innerHTML = cfg.bundles.map(offerCardHTML).join('');
-  render(); initGallery(); initVideos(); initReviews(); initScrollFX();
+  render(); initGallery(); initVideos(); initProductVideo(); initReviews(); initScrollFX();
   if (location.hash === '#buy') openSheet('link');
 })();
