@@ -324,7 +324,7 @@ function range(q) {
 
 // Send a clearly-marked TEST alert to the owner's inbox (no order is created)
 app.post('/api/admin/test-alert', async (_req, res) => {
-  if (!alertsEnabled()) return res.status(400).json({ error: 'Email alerts are not set up yet: add ORDER_ALERT_TO, SMTP_USER and SMTP_PASS in Vercel, then redeploy.' });
+  if (!alertsEnabled()) return res.status(400).json({ error: 'Email alerts are not set up yet: add ALERT_WEBHOOK_URL (or ORDER_ALERT_TO, SMTP_USER and SMTP_PASS) in Vercel, then redeploy.' });
   const sample = {
     orderNo: 'TEST', payMethod: 'cod', amount: 449, bundleTitle: '1 Belt', qty: 1, createdAt: new Date(), src: 'test',
     customer: { name: 'Test Customer', phone: '9999999999', address: 'Test address', city: 'Thrissur', state: 'Kerala', pincode: '680001' },

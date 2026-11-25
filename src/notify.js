@@ -3,13 +3,27 @@
 //   ORDER_ALERT_TO  – where alerts go (owner's inbox)
 //   SMTP_USER       – Gmail address that sends them (e.g. the store's support Gmail)
 //   SMTP_PASS       – a Gmail App Password for SMTP_USER (not the normal Gmail password)
+//   or ALERT_WEBHOOK_URL – Apps Script web app URL (see below); keep it secret, it can email the owner
 import nodemailer from 'nodemailer';
 import { config } from './config.js';
 
 const env = (k) => (process.env[k] || '').trim();
 let transport;
 
-export const alertsEnabled = () => Boolean(env('ORDER_ALERT_TO') && env('SMTP_USER') && env('SMTP_PASS'));
+// Two ways to deliver: ALERT_WEBHOOK_URL (a Google Apps Script web app in the owner's Gmail that emails the
+// owner – no password needed) or SMTP (ORDER_ALERT_TO + SMTP_USER + SMTP_PASS). The webhook wins if set.
+const smtpReady = () => Boolean(env('ORDER_ALERT_TO') && env('SMTP_USER') && env('SMTP_PASS'));
+export const alertsEnabled = () => Boolean(env('ALERT_WEBHOOK_URL') || smtpReady());
+
+async function viaWebhook({ subject, text, html }) {
+  const r = await fetch(env('ALERT_WEBHOOK_URL'), {
+    method: 'POST', headers: { 'content-type': 'application/json' }, redirect: 'follow',
+    body: JSON.stringify({ subject, text, html }),
+  });
+  const body = await r.text();
+  let j = {}; try { j = JSON.parse(body); } catch {}
+  if (!r.ok || j.ok !== true) throw new Error(`webhook ${r.status}: ${(j.error || body).slice(0, 160)}`);
+}
 
 function mailer() {
   transport ??= env('SMTP_HOST')
@@ -78,7 +92,9 @@ function build(order, { todayCount, totalCount, test }) {
 export async function sendOrderAlert(order, counts, { test = false } = {}) {
   if (!alertsEnabled()) return { sent: false, reason: 'not configured' };
   const { subject, text, html } = build(order, { ...counts, test });
-  const send = mailer().sendMail({ from: `"Menkartt Orders" <${env('SMTP_USER')}>`, to: env('ORDER_ALERT_TO'), subject, text, html });
+  const send = env('ALERT_WEBHOOK_URL')
+    ? viaWebhook({ subject, text, html })
+    : mailer().sendMail({ from: `"Menkartt Orders" <${env('SMTP_USER')}>`, to: env('ORDER_ALERT_TO'), subject, text, html });
   try {
     await Promise.race([send, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))]);
     return { sent: true };
