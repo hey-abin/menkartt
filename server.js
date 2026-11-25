@@ -121,9 +121,12 @@ async function alertOwner(orderNo) {
 async function markPaid(order, paymentId, via) {
   const now = new Date();
   // only the first confirmation wins (verify call and Razorpay webhook can arrive together)
+  const upgrade = order.payMethod === 'cod' && order.prepayAmount;
+  const amount = upgrade ? order.prepayAmount : order.amount;
   const updated = await db.updateOne('orders', { _id: order._id, paymentStatus: { $ne: 'paid' } }, {
-    paymentStatus: 'paid', status: 'new', razorpayPaymentId: paymentId, paidAt: now, updatedAt: now,
-    history: [...(order.history || []), { ts: now, msg: `Paid online ₹${order.amount} (${via})` }],
+    paymentStatus: 'paid', payMethod: 'prepaid', amount, razorpayPaymentId: paymentId, paidAt: now, updatedAt: now,
+    status: ['new', 'pending_payment'].includes(order.status) ? 'new' : order.status,
+    history: [...(order.history || []), { ts: now, msg: `Paid online ₹${amount}${upgrade ? ' (switched from COD, ₹' + (order.amount - amount) + ' saved)' : ''} (${via})` }],
   });
   if (!updated) return;
   await alertOwner(order.orderNo);
@@ -135,7 +138,7 @@ async function markPaid(order, paymentId, via) {
 app.get('/api/config', (_req, res) => res.json(publicConfig()));
 
 const EVENT_TYPES = new Set(['page_view', 'view_content', 'video_play', 'add_to_cart', 'checkout_start',
-  'payment_initiated', 'payment_failed', 'payment_cancelled', 'cod_switch', 'whatsapp_click', 'cod_nudge_shown', 'cod_nudge_to_online']);
+  'payment_initiated', 'payment_failed', 'payment_cancelled', 'cod_switch', 'whatsapp_click', 'cod_nudge_shown', 'cod_nudge_to_online', 'cod_upgrade_shown', 'cod_upgrade_click', 'cod_upgrade_paid']);
 
 app.post('/api/track', rateLimit('track', 120, 60_000), async (req, res) => {
   try {
@@ -184,13 +187,14 @@ app.post('/api/orders', rateLimit('orders', 8, 10 * 60_000), async (req, res) =>
     const c = b.customer || {};
     const customer = {
       name: clean(c.name, 80), phone: normPhone(c.phone), email: clean(c.email, 120),
-      address: clean(c.address, 300), landmark: clean(c.landmark, 120),
+      address: clean(c.address, 300), area: clean(c.area, 160), landmark: clean(c.landmark, 120),
       city: clean(c.city, 60), state: clean(c.state, 60), pincode: clean(c.pincode, 6),
     };
     const errs = [];
     if (customer.name.length < 2) errs.push('name');
     if (!isPhone(customer.phone)) errs.push('phone');
-    if (customer.address.length < 8) errs.push('address');
+    // house no. can be short ("12") now that road/area is its own field; old pages send everything in address
+    if (!customer.address || `${customer.address} ${customer.area}`.trim().length < 6) errs.push('address');
     if (!customer.city) errs.push('city');
     if (!customer.state) errs.push('state');
     if (!isPin(customer.pincode)) errs.push('pincode');
@@ -299,6 +303,32 @@ app.post('/api/payments/failed', rateLimit('failed', 20, 10 * 60_000), async (re
     history: [...(order.history || []), { ts: new Date(), msg: `Payment not completed: ${reason}` }],
   });
   res.json({ ok: true });
+});
+
+// After a COD order is placed the customer may choose to pay online now (online price). If they close the
+// payment window nothing changes – it stays a COD order.
+app.post('/api/orders/:orderNo/prepay', rateLimit('prepay', 10, 10 * 60_000), async (req, res) => {
+  const order = await db.findOne('orders', { _id: clean(req.params.orderNo, 20) });
+  if (!order || order.vid !== clean(req.body?.vid, 40) || order.payMethod !== 'cod' || order.paymentStatus !== 'cod' || !['new', 'confirmed'].includes(order.status)) {
+    return res.status(400).json({ error: 'This order can’t be switched to online payment.' });
+  }
+  const bundle = bundleById(order.bundleId);
+  const prepayAmount = bundle.prepaid;
+  let rzId;
+  if (razorpayEnabled()) {
+    const rz = await createRazorpayOrder({ amountRupees: prepayAmount, receipt: order.orderNo, notes: { orderNo: order.orderNo, via: 'cod-upgrade' } });
+    rzId = rz.id;
+  } else if (config.paymentMock) {
+    rzId = `mock_${id(6)}`;
+  } else {
+    return res.status(503).json({ error: 'Online payment is not available right now.' });
+  }
+  const now = new Date();
+  await db.updateOne('orders', { _id: order._id }, {
+    razorpayOrderId: rzId, prepayAmount, updatedAt: now,
+    history: [...(order.history || []), { ts: now, msg: `Customer opened “pay ₹${prepayAmount} now” after the COD order` }],
+  });
+  res.json({ orderNo: order.orderNo, amount: prepayAmount, razorpay: { orderId: rzId, keyId: config.razorpayKeyId || null, amountPaise: prepayAmount * 100, mock: !razorpayEnabled() } });
 });
 
 // Customer closed/failed online payment → switch the same order to Cash on Delivery (saves the sale)
@@ -431,25 +461,48 @@ app.get('/api/admin/stats', async (req, res) => {
   });
 });
 
+// Where an order is in the owner's workflow
+function sectionOf(o) {
+  if (['cancelled', 'rto'].includes(o.status)) return 'closed';
+  if (['awaiting', 'failed'].includes(o.paymentStatus) || o.status === 'pending_payment') return 'unpaid';
+  if (o.status === 'delivered') return 'delivered';
+  if (o.status === 'shipped') return 'shipped';
+  if (o.status === 'meesho_ordered') return 'meesho_ordered';
+  if (o.status === 'confirmed' || (o.status === 'new' && o.paymentStatus === 'paid')) return 'to_order';
+  return 'to_confirm';
+}
+app.get('/api/admin/order-counts', async (_req, res) => {
+  const list = await db.find('orders', {}, { sort: { createdAt: -1 }, limit: 2000 });
+  const counts = {};
+  for (const o of list) { const k = sectionOf(o); counts[k] = (counts[k] || 0) + 1; }
+  counts.all = list.length;
+  res.json(counts);
+});
 app.get('/api/admin/orders', async (req, res) => {
-  const f = {};
-  const st = clean(req.query.status || 'real', 30);
-  if (st === 'real') f.paymentStatus = { $in: ['cod', 'paid', 'cod_collected'] };
-  else if (st === 'unpaid') f.paymentStatus = { $in: ['awaiting', 'failed'] };
-  else if (st !== 'all') f.status = st;
-  let list = await db.find('orders', f, { sort: { createdAt: -1 }, limit: 500 });
+  const sec = clean(req.query.section || req.query.status || 'to_confirm', 30);
+  let list = await db.find('orders', {}, { sort: { createdAt: -1 }, limit: 2000 });
+  if (sec === 'real') list = list.filter((o) => ['cod', 'paid', 'cod_collected'].includes(o.paymentStatus));
+  else if (sec !== 'all') list = list.filter((o) => sectionOf(o) === sec);
   const q = clean(req.query.q, 60).toLowerCase();
   if (q) list = list.filter((o) => [o.orderNo, o.customer.name, o.customer.phone, o.customer.city, o.customer.pincode].join(' ').toLowerCase().includes(q));
   res.json(list);
 });
 
-const ORDER_STATUSES = ['pending_payment', 'new', 'confirmed', 'shipped', 'delivered', 'cancelled', 'rto'];
+const ORDER_STATUSES = ['pending_payment', 'new', 'confirmed', 'meesho_ordered', 'shipped', 'delivered', 'cancelled', 'rto'];
+const STATUS_LABEL = { pending_payment: 'Payment not completed', new: 'New', confirmed: 'Confirmed by customer', meesho_ordered: 'Ordered on Meesho', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled', rto: 'Returned (RTO)' };
 app.patch('/api/admin/orders/:orderNo', async (req, res) => {
   const order = await db.findOne('orders', { _id: clean(req.params.orderNo, 20) });
   if (!order) return res.status(404).json({ error: 'not found' });
   const b = req.body || {}; const set = { updatedAt: new Date() }; const notes = [];
-  if (b.status && ORDER_STATUSES.includes(b.status) && b.status !== order.status) { set.status = b.status; notes.push(`Status → ${b.status}`); }
-  if (b.trackingId !== undefined) { set.trackingId = clean(b.trackingId, 80); notes.push(`Tracking: ${set.trackingId}`); }
+  if (b.status && ORDER_STATUSES.includes(b.status) && b.status !== order.status) { set.status = b.status; notes.push(`Status → ${STATUS_LABEL[b.status]}`); }
+  if (b.meeshoOrderId !== undefined && clean(b.meeshoOrderId, 60) !== (order.meeshoOrderId || '')) { set.meeshoOrderId = clean(b.meeshoOrderId, 60); notes.push(`Meesho order ID: ${set.meeshoOrderId}`); }
+  if (b.customer && typeof b.customer === 'object') {
+    const cu = { ...order.customer };
+    for (const [k, n] of [['name', 80], ['address', 300], ['area', 160], ['landmark', 120], ['city', 60], ['state', 60], ['pincode', 6]]) if (b.customer[k] !== undefined) cu[k] = clean(b.customer[k], n);
+    if (b.customer.phone !== undefined && isPhone(normPhone(b.customer.phone))) cu.phone = normPhone(b.customer.phone);
+    if (JSON.stringify(cu) !== JSON.stringify(order.customer)) { set.customer = cu; notes.push('Customer details edited'); }
+  }
+  if (b.trackingId !== undefined && clean(b.trackingId, 80) !== (order.trackingId || '')) { set.trackingId = clean(b.trackingId, 80); notes.push(`Tracking: ${set.trackingId}`); }
   if (b.courier !== undefined) set.courier = clean(b.courier, 60);
   if (b.note) notes.push(`Note: ${clean(b.note, 300)}`);
   if (b.codCollected === true && order.payMethod === 'cod') { set.paymentStatus = 'cod_collected'; notes.push('COD cash collected'); }
@@ -474,7 +527,7 @@ app.patch('/api/admin/reviews/:rid', async (req, res) => {
 
 app.get('/api/admin/orders.csv', async (_req, res) => {
   const list = await db.find('orders', {}, { sort: { createdAt: -1 } });
-  const cols = ['orderNo', 'createdAt', 'status', 'payMethod', 'paymentStatus', 'amount', 'bundleTitle', 'qty', 'name', 'phone', 'address', 'landmark', 'city', 'state', 'pincode', 'src', 'campaign', 'courier', 'trackingId'];
+  const cols = ['orderNo', 'createdAt', 'status', 'payMethod', 'paymentStatus', 'amount', 'bundleTitle', 'qty', 'name', 'phone', 'address', 'area', 'landmark', 'city', 'state', 'pincode', 'src', 'campaign', 'meeshoOrderId', 'courier', 'trackingId'];
   const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const rows = list.map((o) => cols.map((c) => esc(c === 'createdAt' ? new Date(o.createdAt).toISOString() : (o[c] ?? o.customer?.[c]))).join(','));
   res.setHeader('Content-Type', 'text/csv');

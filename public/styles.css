@@ -437,3 +437,13 @@ body.lock { overflow: hidden; }
 
 /* continuous drift needs free scrolling (snapping would fight the auto-scroll) */
 .r-scroller { scroll-snap-type: none; }
+
+/* ---- Hindi helper text + post-COD offer ---- */
+.hi { font-weight: 600; color: var(--muted, #64748b); font-size: .92em; }
+legend .hi, .pay-top .hi { color: inherit; opacity: .8; }
+.hi-big { font-size: .8em; color: var(--muted, #64748b); }
+.cu-x { position: absolute; top: 8px; right: 10px; width: 40px; height: 40px; border: 0; background: none; font-size: 28px; line-height: 1; color: #64748b; cursor: pointer; }
+.cu-tick { width: 52px; height: 52px; margin: 4px auto 6px; border-radius: 50%; display: grid; place-items: center; background: #dcfce7; color: #16a34a; font-size: 28px; font-weight: 900; }
+.cu-wa { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 10px 12px; font-size: 14px; color: #14532d; }
+.cu-offer { display: grid; gap: 4px; text-align: left; background: #fff7ed; border: 1px dashed #fb923c; border-radius: 12px; padding: 10px 12px; margin: 10px 0 4px; font-size: 14px; }
+.cu-offer span { color: #7c2d12; }

@@ -55,7 +55,7 @@ function loadPixel(id) {
 }
 
 // ---------- state ----------
-let cfg; let bundle; let payMethod = 'prepaid'; let prepaidAvailable = true;
+let cfg; let bundle; let payMethod = 'cod'; let prepaidAvailable = true;
 let cid = store.sget('cid') || rid(); store.sset('cid', cid);
 let currentOrder = null;
 const rupee = (n) => Number(n).toLocaleString('en-IN');
@@ -80,11 +80,19 @@ function render() {
   $('#sum-disc-row').hidden = payMethod !== 'prepaid';
   $('#sum-disc').textContent = save;
   $('#sum-total').textContent = rupee(total);
-  $('#place-btn').textContent = payMethod === 'cod' ? `Place COD order · ₹${rupee(total)}` : `Pay ₹${rupee(total)} securely`;
+  $('#place-btn').textContent = payMethod === 'cod' ? `Place order · ऑर्डर करें · ₹${rupee(total)}` : `Pay ₹${rupee(total)} securely · भुगतान करें`;
   // hide strike-through prices when there is no online offer
   $$('.price-now s, .sb-price s').forEach((s) => (s.hidden = !prepaidAvailable));
 }
 
+// checkout pack boxes: COD price first (COD is the default), online price as the saving
+function sheetPackHTML(b) {
+  return `<button type="button" class="pack" data-id="${b.id}" role="radio">
+    ${b.tag ? `<span class="p-tag">${b.tag}</span>` : ''}
+    <b>${b.title}</b><span class="p-sub">${b.subtitle}</span>
+    <span class="p-price">₹${rupee(b.cod)} <small>COD</small></span>
+    <span class="p-each">${prepaidAvailable ? `or ₹${rupee(b.prepaid)} online` : 'Free delivery'}</span></button>`;
+}
 function packHTML(b) {
   const p = bestPrice(b);
   const each = b.qty > 1 ? `<span class="p-each">₹${Math.round(p / b.qty)} each</span>` : '<span class="p-each">Free delivery</span>';
@@ -119,7 +127,7 @@ function fillBusiness() {
   $$('[data-email]').forEach((a) => (a.href = `mailto:${B.email}`));
   $$('[data-email-text]').forEach((a) => (a.textContent = B.email));
   $$('[data-legal]').forEach((e) => (e.textContent = [`© ${new Date().getFullYear()} ${B.legalName || cfg.brand}`, B.address].filter(Boolean).join(' · ')));
-  if (!cfg.codEnabled) { $('#cod-opt').hidden = true; $$('.cta-note').forEach((e) => (e.hidden = true)); }
+  if (!cfg.codEnabled) { payMethod = 'prepaid'; const pr = $('input[name="payMethod"][value="prepaid"]'); if (pr) pr.checked = true; $('#cod-opt').hidden = true; $$('.cta-note').forEach((e) => (e.hidden = true)); }
   // Online payment not set up → only COD, priced at the regular price
   if (!cfg.razorpayKeyId && !cfg.paymentMock && cfg.codEnabled) {
     prepaidAvailable = false;
@@ -353,7 +361,7 @@ document.addEventListener('click', (e) => {
 });
 $$('input[name="payMethod"]').forEach((r) => r.addEventListener('change', () => { payMethod = r.value; render(); saveProgress(); }));
 
-const FIELDS = ['name', 'phone', 'pincode', 'city', 'state', 'address', 'landmark'];
+const FIELDS = ['name', 'phone', 'pincode', 'city', 'state', 'address', 'area', 'landmark'];
 try { const saved = JSON.parse(store.get('form') || '{}'); FIELDS.forEach((f) => { if (saved[f]) form[f].value = saved[f]; }); } catch {}
 
 let progressTimer;
@@ -397,7 +405,8 @@ function validate() {
   if (!/^\d{6}$/.test(v.pincode)) bad.push('pincode');
   if (!v.city) bad.push('city');
   if (!v.state) bad.push('state');
-  if (v.address.length < 8) bad.push('address');
+  if (v.address.length < 2) bad.push('address');
+  if (v.area.length < 3) bad.push('area');
   return { v, bad };
 }
 function showError(msg, fields = []) {
@@ -411,10 +420,9 @@ form.addEventListener('submit', async (e) => {
   showError('');
   const { v, bad } = validate();
   if (bad.length) {
-    const names = { name: 'your name', phone: 'a valid 10-digit mobile number', pincode: 'a 6-digit PIN code', city: 'city', state: 'state', address: 'your full address' };
+    const names = { name: 'your name', phone: 'a valid 10-digit mobile number', pincode: 'a 6-digit PIN code', city: 'city', state: 'state', address: 'house no. / building (मकान नं.)', area: 'road / area / colony (इलाका)' };
     return showError(`Please enter ${bad.map((b) => names[b]).join(', ')}.`, bad);
   }
-  if (payMethod === 'cod' && prepaidAvailable && !codNudged && bundle.cod > bundle.prepaid) return showCodNudge();
   const btn = $('#place-btn'); btn.disabled = true; const label = btn.textContent; btn.textContent = 'Please wait…';
   try {
     const res = await api('/api/orders', { cid, vid, bundleId: bundle.id, payMethod, customer: v, attribution });
@@ -427,30 +435,38 @@ form.addEventListener('submit', async (e) => {
   } finally { btn.disabled = false; btn.textContent = label; }
 });
 
-// ---------- COD → online nudge (once per checkout) ----------
-let codNudged = false;
-function showCodNudge() {
-  codNudged = true;
-  const save = rupee(bundle.cod - bundle.prepaid);
-  ['#cn-save', '#cn-save2'].forEach((id) => ($(id).textContent = save));
-  ['#cn-pre', '#cn-pre2'].forEach((id) => ($(id).textContent = rupee(bundle.prepaid)));
-  ['#cn-cod', '#cn-cod2'].forEach((id) => ($(id).textContent = rupee(bundle.cod)));
-  $('#cod-nudge').hidden = false;
-  track('cod_nudge_shown', { bundleId: bundle.id });
-  $('#cn-online').focus();
+// ---------- after a COD order: optional "pay ₹399 now, save ₹50" (closable; skipping keeps the COD order) ----------
+function showCodUpgrade() {
+  const o = currentOrder;
+  if (!o || o.payMethod !== 'cod' || !prepaidAvailable || !(o.bundle.cod > o.bundle.prepaid)) return;
+  $('#cu-no').textContent = '#' + o.orderNo;
+  $('#cu-cod').textContent = rupee(o.bundle.cod);
+  $$('.cu-cod2').forEach((e) => (e.textContent = rupee(o.bundle.cod)));
+  $$('.cu-pre').forEach((e) => (e.textContent = rupee(o.bundle.prepaid)));
+  $$('.cu-save').forEach((e) => (e.textContent = rupee(o.bundle.cod - o.bundle.prepaid)));
+  $('#cod-up').hidden = false;
+  track('cod_upgrade_shown', { orderNo: o.orderNo });
 }
-function closeCodNudge(toOnline) {
-  $('#cod-nudge').hidden = true;
-  if (toOnline) {
-    track('cod_nudge_to_online', { bundleId: bundle.id });
-    payMethod = 'prepaid';
-    const r = $('input[name="payMethod"][value="prepaid"]'); if (r) r.checked = true;
-    render(); saveProgress();
-  }
-  form.requestSubmit();
+const closeCodUpgrade = () => { $('#cod-up').hidden = true; };
+$('#cu-close').addEventListener('click', closeCodUpgrade);
+$('#cu-skip').addEventListener('click', closeCodUpgrade);
+$('#cod-up').addEventListener('click', (e) => { if (e.target.id === 'cod-up') closeCodUpgrade(); });
+$('#cu-pay').addEventListener('click', async (e) => {
+  const btn = e.currentTarget; btn.disabled = true;
+  try {
+    const r = await api(`/api/orders/${currentOrder.orderNo}/prepay`, { vid });
+    track('cod_upgrade_click', { orderNo: currentOrder.orderNo });
+    currentOrder.razorpay = r.razorpay; currentOrder.upgrading = true; currentOrder.upgradeAmount = r.amount;
+    closeCodUpgrade();
+    openPayment();
+  } catch (err) { alert(err.message); } finally { btn.disabled = false; }
+});
+function upgradePaid() {
+  const o = currentOrder; o.upgrading = false;
+  o.payMethod = 'prepaid'; o.amount = o.upgradeAmount;
+  track('cod_upgrade_paid', { orderNo: o.orderNo });
+  orderDone({ skipPixel: true });
 }
-$('#cn-online').addEventListener('click', () => closeCodNudge(true));
-$('#cn-keep').addEventListener('click', () => closeCodNudge(false));
 
 // ---------- payment ----------
 let rzpLoading;
@@ -471,10 +487,10 @@ async function openPayment() {
     prefill: { name: o.customer.name, contact: '+91' + o.customer.phone },
     notes: { orderNo: o.orderNo }, theme: { color: '#ff2e63' },
     handler: async (resp) => {
-      try { await api('/api/payments/verify', { orderNo: o.orderNo, ...resp }); orderDone(); }
+      try { await api('/api/payments/verify', { orderNo: o.orderNo, ...resp }); if (o.upgrading) upgradePaid(); else orderDone(); }
       catch { paymentNotDone(`We could not confirm the payment. If money was deducted it will be auto-confirmed shortly – email ${cfg.business.email} with your order number.`); }
     },
-    modal: { ondismiss: () => { if (!currentOrder.done) { api('/api/payments/failed', { orderNo: o.orderNo, reason: 'Payment window closed' }).catch(() => {}); track('payment_cancelled', { orderNo: o.orderNo }); paymentNotDone(); } } },
+    modal: { ondismiss: () => { if (o.upgrading) { o.upgrading = false; return; } if (!currentOrder.done) { api('/api/payments/failed', { orderNo: o.orderNo, reason: 'Payment window closed' }).catch(() => {}); track('payment_cancelled', { orderNo: o.orderNo }); paymentNotDone(); } } },
   });
   rzp.on('payment.failed', (r) => { track('payment_failed', { orderNo: o.orderNo, reason: r?.error?.description || '' }); });
   rzp.open();
@@ -499,17 +515,18 @@ $('#switch-cod').addEventListener('click', async (e) => {
 });
 $('#mock-ok').addEventListener('click', async () => {
   $('#mockpay').hidden = true;
-  try { await api('/api/payments/mock-success', { orderNo: currentOrder.orderNo }); orderDone(); } catch (e) { paymentNotDone(e.message); }
+  try { await api('/api/payments/mock-success', { orderNo: currentOrder.orderNo }); if (currentOrder.upgrading) upgradePaid(); else orderDone(); } catch (e) { paymentNotDone(e.message); }
 });
 $('#mock-fail').addEventListener('click', () => {
   $('#mockpay').hidden = true;
+  if (currentOrder.upgrading) { currentOrder.upgrading = false; return; }
   api('/api/payments/failed', { orderNo: currentOrder.orderNo, reason: 'Test: payment closed' }).catch(() => {});
   track('payment_cancelled', { orderNo: currentOrder.orderNo }); paymentNotDone();
 });
 
-function orderDone() {
+function orderDone(opts = {}) {
   const o = currentOrder; o.done = true;
-  pixel('track', 'Purchase', { value: o.amount, currency: 'INR', content_ids: [o.bundle.id], content_type: 'product', num_items: o.bundle.qty }, { eventID: o.orderNo });
+  if (!opts.skipPixel) pixel('track', 'Purchase', { value: o.amount, currency: 'INR', content_ids: [o.bundle.id], content_type: 'product', num_items: o.bundle.qty }, { eventID: o.orderNo });
   store.set('form', '{}'); cid = rid(); store.sset('cid', cid);
   $('#t-order').textContent = '#' + o.orderNo;
   const cod = o.payMethod === 'cod';
@@ -517,13 +534,14 @@ function orderDone() {
     <div><span>Payment</span><b>${cod ? 'Cash on Delivery' : 'Paid online ✓'}</b></div>
     <div><span>Deliver to</span><b>${esc(o.customer.name)}, ${esc(o.customer.city)} ${esc(o.customer.pincode)}</b></div>`;
   $('#t-next').innerHTML = (cod
-    ? [`We may contact you to confirm – please keep <b>+91 ${esc(o.customer.phone)}</b> reachable.`, `Keep <b>₹${rupee(o.amount)}</b> ready when the parcel arrives.`]
+    ? [`Our team will WhatsApp you on <b>+91 ${esc(o.customer.phone)}</b> to confirm · हमारी टीम WhatsApp पर कन्फर्म करेगी।`, `Keep <b>₹${rupee(o.amount)}</b> ready when the parcel arrives · डिलीवरी पर ₹${rupee(o.amount)} तैयार रखें।`]
     : ['Payment received.'])
     .concat(['Delivery time depends on your PIN code. Email us your order number for an update.', 'Tip: start with 20–30 minutes a day.']).map((t) => `<li>${t}</li>`).join('');
   $('#t-help').href = `mailto:${cfg.business.email}?subject=${encodeURIComponent(`Order ${o.orderNo}`)}`;
   showPanel('thanks');
   sheet.hidden = false; backdrop.hidden = false; document.body.classList.add('lock');
   sheet.scrollTop = 0;
+  if (o.payMethod === 'cod' && !opts.skipPixel) setTimeout(showCodUpgrade, 700);
 }
 
 // ---------- boot ----------
@@ -535,7 +553,7 @@ function orderDone() {
   bundle = cfg.bundles[0];
   fillBusiness();
   $('#packs').innerHTML = cfg.bundles.map(packHTML).join('');
-  $('#sheet-packs').innerHTML = cfg.bundles.map(packHTML).join('');
+  $('#sheet-packs').innerHTML = cfg.bundles.map(sheetPackHTML).join('');
   $('#offer-cards').innerHTML = cfg.bundles.map(offerCardHTML).join('');
   render(); initGallery(); initVideos(); initProductVideo(); initReviews(); initScrollFX();
   if (location.hash === '#buy') openSheet('link');

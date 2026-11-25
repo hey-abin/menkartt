@@ -85,116 +85,208 @@ function drawChart(daily) {
     <div class="legend"><span><i style="background:#ff6a1f"></i>Orders (max ${maxO})</span><span><i style="background:#2563eb"></i>Visitors (max ${maxV})</span></div>`;
 }
 
-// ---------- orders ----------
-const STATUS = { pending_payment: 'Payment not completed', new: 'New', confirmed: 'Confirmed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled', rto: 'RTO (returned)' };
+// ---------- orders: workflow sections + detail popup ----------
+const STATUS = { pending_payment: 'Payment not completed', new: 'New', confirmed: 'Confirmed', meesho_ordered: 'Ordered on Meesho', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled', rto: 'Returned (RTO)' };
+const SECTIONS = [
+  { k: 'to_confirm', l: '1 · To confirm', hint: 'New COD orders. WhatsApp or call the customer. When they reply YES, open the order and press “Confirmed”. No reply in 24 h → Cancel.' },
+  { k: 'to_order', l: '2 · Order on Meesho', hint: 'Confirmed or already paid. Open it, use the copy buttons to place the order on Meesho, paste the Meesho order ID and press “Ordered on Meesho”.' },
+  { k: 'meesho_ordered', l: '3 · Ordered on Meesho', hint: 'Waiting for Meesho to ship. When it ships, add the tracking number, press “Shipped” and send the WhatsApp.' },
+  { k: 'shipped', l: '4 · Shipped', hint: 'On the way. Press “Delivered” when it arrives (COD cash is then marked collected).' },
+  { k: 'delivered', l: '5 · Delivered', hint: 'Done. Ask happy customers for a review: ' },
+  { k: 'unpaid', l: 'Payment not completed', hint: 'Started paying online but didn’t finish – not orders yet. Open one and send the customer their pay link.' },
+  { k: 'abandoned', l: 'Abandoned checkouts', hint: 'Gave their phone number but didn’t place an order. A friendly WhatsApp brings many back.' },
+  { k: 'closed', l: 'Cancelled / RTO', hint: 'Cancelled orders and parcels returned to the seller.' },
+  { k: 'reviews', l: 'Reviews', hint: 'Reviews posted by customers. Approve to show them on the store.' },
+  { k: 'all', l: 'All orders', hint: 'Every order, newest first.' },
+];
+let section = 'to_confirm'; let counts = {}; let listCache = []; let abCache = [];
+
 function payBadge(o) {
   if (o.paymentStatus === 'paid') return '<span class="badge b-paid">PAID online</span>';
   if (o.paymentStatus === 'cod') return '<span class="badge b-cod">COD – to collect</span>';
   if (o.paymentStatus === 'cod_collected') return '<span class="badge b-paid">COD collected</span>';
-  if (o.paymentStatus === 'failed') return '<span class="badge b-fail">Payment failed – not an order yet</span>';
-  return '<span class="badge b-wait">Payment not completed – not an order yet</span>';
+  if (o.paymentStatus === 'failed') return '<span class="badge b-fail">Not paid – not an order yet</span>';
+  return '<span class="badge b-wait">Not paid – not an order yet</span>';
 }
 function waLink(phone, text) { return `https://wa.me/91${phone}?text=${encodeURIComponent(text)}`; }
+const first = (n) => String(n || '').trim().split(/\s+/)[0] || 'there';
+const fullAddress = (c) => [c.address, c.area, c.landmark ? `Landmark: ${c.landmark}` : '', `${c.city}, ${c.state} – ${c.pincode}`].filter(Boolean).join(', ');
+
+function messages(o) {
+  const c = o.customer; const f = first(c.name); const cod = o.payMethod === 'cod'; const amt = Number(o.amount).toLocaleString('en-IN');
+  const track = o.trackingId ? `\nट्रैकिंग / Tracking: ${o.trackingId}${o.courier ? ` (${o.courier})` : ''}` : '';
+  return {
+    confirm: cod
+      ? `नमस्ते ${f} जी 🙏\nMenkartt से आपका ऑर्डर ${o.orderNo} मिला है:\nपोस्चर करेक्टर बेल्ट (${o.bundleTitle}) – ₹${amt} कैश ऑन डिलीवरी\nपता: ${fullAddress(c)}\n\nऑर्डर कन्फर्म करने के लिए *YES* लिखकर भेजें।\n\nHi ${f}, we received your Menkartt order ${o.orderNo} (₹${amt} Cash on Delivery). Please reply YES to confirm.`
+      : `नमस्ते ${f} जी 🙏 आपका ₹${amt} का भुगतान मिल गया है। ऑर्डर ${o.orderNo} जल्द भेजा जाएगा।\n\nHi ${f}, payment received for order ${o.orderNo}. We'll message you when it ships.`,
+    shipped: `नमस्ते ${f} जी, आपका Menkartt ऑर्डर ${o.orderNo} भेज दिया गया है 🚚${track}${cod ? `\nडिलीवरी पर ₹${amt} तैयार रखें।` : ''}\n\nHi ${f}, your order ${o.orderNo} has been shipped.${cod ? ` Please keep ₹${amt} ready.` : ''}`,
+    pay: `नमस्ते ${f} जी 🙏 Menkartt से। आपका ऑनलाइन भुगतान पूरा नहीं हुआ, कोई पैसा नहीं कटा।\nयहाँ से ₹${amt} भरकर ऑर्डर पूरा करें (पता पहले से सेव है):\n${location.origin}/pay/${o.orderNo}\nया ${location.origin}/store पर कैश ऑन डिलीवरी चुनें।\n\nHi ${f}, your payment didn't go through (no money taken). Finish your order here: ${location.origin}/pay/${o.orderNo} – or order again with Cash on Delivery at ${location.origin}/store`,
+  };
+}
+
+function renderSections() {
+  const ab = abCache.filter((c) => c.status !== 'contacted').length;
+  $('#secs').innerHTML = SECTIONS.map((s) => {
+    const n = s.k === 'abandoned' ? ab : s.k === 'reviews' ? '' : (counts[s.k] || 0);
+    const urgent = ['to_confirm', 'to_order', 'abandoned', 'unpaid'].includes(s.k) && n > 0;
+    return `<button class="sec ${s.k === section ? 'on' : ''}" data-sec="${s.k}">${s.l}${n !== '' ? ` <span class="cnt ${urgent ? 'urgent' : ''}">${n}</span>` : ''}</button>`;
+  }).join('');
+  const s = SECTIONS.find((x) => x.k === section);
+  $('#sec-hint').innerHTML = esc(s.hint) + (s.k === 'delivered' ? `<b>${esc(location.origin)}/review</b>` : '');
+}
+
+function orderRow(o) {
+  const c = o.customer;
+  return `<button class="row" data-no="${esc(o.orderNo)}">
+    <span class="r-main"><b>${esc(c.name)}</b><span class="r-phone">+91 ${esc(c.phone)}</span></span>
+    <span class="r-meta">${esc(o.orderNo)} · ${when(o.createdAt)} · ${esc(c.city)}${o.meeshoOrderId ? ' · Meesho ' + esc(o.meeshoOrderId) : ''}</span>
+    <span class="r-right"><b>${inr(o.amount)}</b>${payBadge(o)}</span></button>`;
+}
+function abRow(c) {
+  return `<button class="row" data-cid="${esc(c._id)}">
+    <span class="r-main"><b>${esc(c.name || 'No name')}</b><span class="r-phone">+91 ${esc(c.phone)}</span></span>
+    <span class="r-meta">${ago(c.updatedAt)} · ${esc(c.city || '')} ${esc(c.pincode || '')} · chose ${c.payMethod === 'cod' ? 'COD' : 'online'}</span>
+    <span class="r-right">${c.status === 'contacted' ? '<span class="badge b-paid">Contacted</span>' : '<span class="badge b-fail">Not contacted</span>'}</span></button>`;
+}
 
 async function loadOrders() {
-  const q = encodeURIComponent($('#q').value.trim()); const st = $('#status-filter').value;
-  const list = await api(`/api/admin/orders?status=${st}&q=${q}`);
-  $('#orders').innerHTML = list.length ? list.map((o) => {
-    const c = o.customer;
-    const unpaid = ['awaiting', 'failed'].includes(o.paymentStatus);
-    const payLink = `${location.origin}/pay/${o.orderNo}`;
-    const helpMsg = `Hi ${c.name.split(' ')[0]}, this is ${cfg.brand}. You tried to order our posture belt (${o.bundleTitle}) but the payment didn't go through, so no money was taken.\n\nYou can finish your order here – ₹${o.amount}, your address is already saved:\n${payLink}\n\nIf you pay by UPI, approve the request in your UPI app within a few minutes. Prefer Cash on Delivery? Order again at ${location.origin}/store and choose COD (₹${o.amount + 50}). Happy to help with any questions!`;
-    const confirmMsg = o.payMethod === 'cod'
-      ? `Hi ${c.name.split(' ')[0]}, thank you for ordering the ${cfg.brand} posture belt (order ${o.orderNo}, ₹${o.amount} Cash on Delivery). Please reply YES to confirm your order. Delivery address: ${c.address}, ${c.city} ${c.pincode}.`
-      : `Hi ${c.name.split(' ')[0]}, thank you for your order ${o.orderNo} of the ${cfg.brand} posture belt. Payment received ✅ We'll message you when it ships.`;
-    const shipMsg = `Hi ${c.name.split(' ')[0]}, your ${cfg.brand} order ${o.orderNo} has been shipped${o.trackingId ? ` – tracking: ${o.trackingId}${o.courier ? ' (' + o.courier + ')' : ''}` : ''}. ${o.payMethod === 'cod' ? `Please keep ₹${o.amount} ready.` : ''}`;
-    return `<div class="order" data-no="${esc(o.orderNo)}">
-      <div class="o-top"><span><span class="o-no">${esc(o.orderNo)}</span> <span class="o-when">${when(o.createdAt)}</span></span><span class="o-amt">${inr(o.amount)}</span></div>
-      <div class="o-mid"><b>${esc(c.name)}</b><a href="tel:+91${esc(c.phone)}">+91 ${esc(c.phone)}</a><span>${esc(c.city)}, ${esc(c.state)} ${esc(c.pincode)}</span>
-        <span>${esc(o.bundleTitle)}</span>${payBadge(o)}${o.isAd ? '<span class="badge b-ad">from Meta ad</span>' : `<span class="badge">${esc(o.src || 'direct')}</span>`}${o.campaign ? `<span class="badge">${esc(o.campaign)}</span>` : ''}</div>
-      <div class="o-actions">
-        <select class="o-status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${k === o.status ? 'selected' : ''}>${v}</option>`).join('')}</select>
-        <input class="o-courier" placeholder="Courier" value="${esc(o.courier || '')}" style="width:110px">
-        <input class="o-track" placeholder="Tracking / AWB no." value="${esc(o.trackingId || '')}">
-        <button class="primary o-save">Save</button>
-        ${unpaid
-          ? `<a class="ghost wa" target="_blank" rel="noopener" href="${waLink(c.phone, helpMsg)}">WhatsApp: help to pay</a>
-        <button class="ghost o-copy" type="button" data-link="${esc(payLink)}">Copy pay link</button>`
-          : `<a class="ghost wa" target="_blank" rel="noopener" href="${waLink(c.phone, confirmMsg)}">WhatsApp: confirm</a>
-        <a class="ghost" target="_blank" rel="noopener" href="${waLink(c.phone, shipMsg)}">WhatsApp: shipped</a>`}
-      </div>
-      <details class="o-more"><summary>Address &amp; history</summary>
-        <div class="addr">${esc(c.name)}\n${esc(c.address)}${c.landmark ? '\nLandmark: ' + esc(c.landmark) : ''}\n${esc(c.city)}, ${esc(c.state)} – ${esc(c.pincode)}\nPhone: +91 ${esc(c.phone)}</div>
-        ${o.razorpayPaymentId ? `<div class="o-when">Razorpay payment: ${esc(o.razorpayPaymentId)}</div>` : ''}
-        <ul>${(o.history || []).map((h) => `<li>${when(h.ts)} – ${esc(h.msg)}</li>`).join('')}</ul>
-      </details>
-    </div>`;
-  }).join('') : `<p class="empty">${st === 'unpaid' ? 'No unfinished payments.' : 'No orders yet. Once you run ads, orders appear here.'}</p>`;
-}
-
-$('#orders').addEventListener('click', async (e) => {
-  if (e.target.classList.contains('o-copy')) {
-    const link = e.target.dataset.link;
-    try { await navigator.clipboard.writeText(link); toast('Pay link copied ✓'); } catch { prompt('Copy this pay link:', link); }
+  renderSections();
+  const q = $('#q').value.trim().toLowerCase();
+  if (section === 'reviews') { $('#olist').innerHTML = await reviewsHTML(); return; }
+  if (section === 'abandoned') {
+    const list = abCache.filter((c) => !q || [c.name, c.phone, c.city, c.pincode].join(' ').toLowerCase().includes(q));
+    $('#olist').innerHTML = list.length ? list.map(abRow).join('') : '<p class="empty">No abandoned checkouts 🎉</p>';
     return;
   }
-  if (!e.target.classList.contains('o-save')) return;
-  const box = e.target.closest('.order');
+  listCache = await api(`/api/admin/orders?section=${section}&q=${encodeURIComponent(q)}`);
+  $('#olist').innerHTML = listCache.length ? listCache.map(orderRow).join('') : '<p class="empty">Nothing here right now.</p>';
+}
+async function loadCounts() { counts = await api('/api/admin/order-counts'); renderSections(); }
+async function loadAbandoned() { abCache = await api('/api/admin/abandoned'); renderSections(); if (section === 'abandoned') loadOrders(); }
+
+// ---------- detail popup ----------
+const copyBtn = (v) => `<button class="cp" data-copy="${esc(v)}" ${v ? '' : 'disabled'}>Copy</button>`;
+function field(label, v) { return `<div class="fld"><span class="f-l">${label}</span><span class="f-v">${esc(v || '—')}</span>${copyBtn(v || '')}</div>`; }
+
+function openOrder(o) {
+  const c = o.customer; const m = messages(o); const unpaid = ['awaiting', 'failed'].includes(o.paymentStatus);
+  const steps = ['new', 'confirmed', 'meesho_ordered', 'shipped', 'delivered'];
+  $('#mcard').innerHTML = `
+    <div class="m-head"><div><div class="m-no">${esc(o.orderNo)} <span class="o-when">${when(o.createdAt)}</span></div>
+      <div class="m-badges">${payBadge(o)} <span class="badge">${esc(STATUS[o.status] || o.status)}</span> ${o.isAd ? '<span class="badge b-ad">from Meta ad</span>' : `<span class="badge">${esc(o.src || 'direct')}</span>`}</div></div>
+      <div class="m-amt">${inr(o.amount)}</div><button class="m-x" data-close aria-label="Close">×</button></div>
+
+    ${unpaid ? `<div class="m-note">Not an order yet – the online payment wasn’t completed. Send the pay link below.</div>` : `
+    <div class="m-sec"><div class="m-t">Status</div><div class="steps">
+      ${steps.map((k) => `<button class="step ${o.status === k ? 'on' : ''}" data-status="${k}">${STATUS[k]}</button>`).join('')}
+      <button class="step bad ${o.status === 'cancelled' ? 'on' : ''}" data-status="cancelled">Cancel</button>
+      <button class="step bad ${o.status === 'rto' ? 'on' : ''}" data-status="rto">RTO</button></div></div>`}
+
+    <div class="m-sec"><div class="m-t">Message the customer</div><div class="acts">
+      ${unpaid
+        ? `<a class="ghost wa" target="_blank" rel="noopener" href="${waLink(c.phone, m.pay)}">WhatsApp: pay link</a>${copyBtn(`${location.origin}/pay/${o.orderNo}`).replace('>Copy<', '>Copy pay link<')}`
+        : `<a class="ghost wa" target="_blank" rel="noopener" href="${waLink(c.phone, m.confirm)}">WhatsApp: confirm (हिंदी + English)</a>
+           <a class="ghost" target="_blank" rel="noopener" href="${waLink(c.phone, m.shipped)}">WhatsApp: shipped</a>`}
+      <a class="ghost" href="tel:+91${esc(c.phone)}">Call</a></div></div>
+
+    <div class="m-sec"><div class="m-t">Customer details for Meesho <button class="cp big" data-copy="${esc(`${c.name}\n${c.phone}\n${fullAddress(c)}`)}">Copy all</button></div>
+      ${field('Name', c.name)}${field('Mobile', c.phone)}${field('PIN code', c.pincode)}
+      ${field('House no. / Building', c.address)}${field('Road / Area / Colony', c.area)}${field('Landmark', c.landmark)}
+      ${field('City', c.city)}${field('State', c.state)}
+      <details class="edit"><summary>Edit details</summary><form id="edit-cust" class="edit-grid">
+        ${[['name', 'Name'], ['phone', 'Mobile'], ['pincode', 'PIN code'], ['address', 'House no. / Building'], ['area', 'Road / Area / Colony'], ['landmark', 'Landmark'], ['city', 'City'], ['state', 'State']]
+          .map(([k, l]) => `<label>${l}<input name="${k}" value="${esc(c[k] || '')}"></label>`).join('')}
+        <button class="primary" type="submit">Save details</button></form></details></div>
+
+    <div class="m-sec"><div class="m-t">Product</div><div class="kv"><span>${esc(o.bundleTitle)} (qty ${o.qty || 1})</span><span>${o.payMethod === 'cod' ? `Collect ${inr(o.amount)} cash` : 'Paid online'}${o.campaign ? ' · ' + esc(o.campaign) : ''}</span></div></div>
+
+    ${unpaid ? '' : `<div class="m-sec"><div class="m-t">Meesho & delivery</div><form id="ship" class="ship">
+      <label>Meesho order ID<input name="meeshoOrderId" value="${esc(o.meeshoOrderId || '')}" placeholder="from Meesho"></label>
+      <label>Courier<input name="courier" value="${esc(o.courier || '')}" placeholder="e.g. Delhivery"></label>
+      <label>Tracking / AWB<input name="trackingId" value="${esc(o.trackingId || '')}"></label>
+      <button class="primary" type="submit">Save</button></form></div>`}
+
+    <div class="m-sec"><div class="m-t">Notes & history</div>
+      <form id="note" class="note"><input name="note" placeholder="Add a note (e.g. customer said call after 6 pm)"><button type="submit">Add</button></form>
+      <ul class="hist">${(o.history || []).slice().reverse().map((h) => `<li><span>${when(h.ts)}</span> ${esc(h.msg)}</li>`).join('')}</ul></div>`;
+  $('#omodal').hidden = false; $('#omodal').dataset.no = o.orderNo; document.body.classList.add('lock');
+}
+
+function openAbandoned(c) {
+  const f = first(c.name);
+  const msg = `नमस्ते ${f} जी 🙏 आपने Menkartt पोस्चर करेक्टर बेल्ट का ऑर्डर शुरू किया था पर पूरा नहीं हुआ। कैश ऑन डिलीवरी (₹${cfg.bundles?.[0]?.cod ?? ''}) से ऑर्डर करें, घर पर पैसे दें:\n${location.origin}/store\n\nHi ${f}, you were one step away from your Menkartt posture belt. Order with Cash on Delivery here: ${location.origin}/store`;
+  $('#mcard').innerHTML = `
+    <div class="m-head"><div><div class="m-no">${esc(c.name || 'No name')} <span class="o-when">${ago(c.updatedAt)}</span></div>
+      <div class="m-badges">${c.status === 'contacted' ? '<span class="badge b-paid">Contacted</span>' : '<span class="badge b-fail">Not contacted</span>'} ${c.src === 'meta-ad' ? '<span class="badge b-ad">from Meta ad</span>' : ''}</div></div>
+      <button class="m-x" data-close aria-label="Close">×</button></div>
+    <div class="m-sec"><div class="m-t">Message</div><div class="acts">
+      <a class="ghost wa" target="_blank" rel="noopener" data-contacted="${esc(c._id)}" href="${waLink(c.phone, msg)}">WhatsApp reminder (हिंदी + English)</a>
+      <a class="ghost" href="tel:+91${esc(c.phone)}">Call</a>
+      <button data-contacted="${esc(c._id)}">Mark contacted</button></div></div>
+    <div class="m-sec"><div class="m-t">What they entered</div>
+      ${field('Name', c.name)}${field('Mobile', c.phone)}${field('PIN code', c.pincode)}${field('City', c.city)}
+      <div class="kv"><span>Pack: ${esc(c.bundleId || '')}</span><span>Chose ${c.payMethod === 'cod' ? 'Cash on Delivery' : 'online payment'}</span></div></div>`;
+  $('#omodal').hidden = false; delete $('#omodal').dataset.no; document.body.classList.add('lock');
+}
+function closeModal() { $('#omodal').hidden = true; document.body.classList.remove('lock'); }
+
+async function patchOrder(no, body, msg = 'Saved ✓') {
+  const o = await api(`/api/admin/orders/${no}`, { method: 'PATCH', body: JSON.stringify(body) });
+  toast(msg); openOrder(o); loadCounts(); loadOrders(); loadStats();
+}
+
+$('#secs').addEventListener('click', (e) => { const b = e.target.closest('[data-sec]'); if (!b) return; section = b.dataset.sec; loadOrders(); });
+$('#olist').addEventListener('click', (e) => {
+  const r = e.target.closest('.row'); if (r) {
+    if (r.dataset.no) openOrder(listCache.find((o) => o.orderNo === r.dataset.no));
+    else if (r.dataset.cid) openAbandoned(abCache.find((c) => c._id === r.dataset.cid));
+    return;
+  }
+  const rv = e.target.closest('.rv-toggle'); if (rv) toggleReview(rv);
+});
+$('#omodal').addEventListener('click', async (e) => {
+  if (e.target.id === 'omodal' || e.target.closest('[data-close]')) return closeModal();
+  const cp = e.target.closest('[data-copy]');
+  if (cp) { try { await navigator.clipboard.writeText(cp.dataset.copy); cp.textContent = 'Copied ✓'; setTimeout(() => (cp.textContent = cp.classList.contains('big') ? 'Copy all' : 'Copy'), 1200); } catch { prompt('Copy:', cp.dataset.copy); } return; }
+  const st = e.target.closest('[data-status]');
+  if (st) {
+    const k = st.dataset.status; const no = $('#omodal').dataset.no;
+    if (['cancelled', 'rto'].includes(k) && !confirm(k === 'rto' ? 'Mark this parcel as returned (RTO)?' : 'Cancel this order?')) return;
+    try { await patchOrder(no, { status: k }, `Marked: ${STATUS[k]}`); } catch (err) { toast(err.message); }
+    return;
+  }
+  const ct = e.target.closest('[data-contacted]');
+  if (ct) { await api(`/api/admin/checkouts/${ct.dataset.contacted}`, { method: 'PATCH', body: JSON.stringify({ status: 'contacted' }) }).catch(() => {}); setTimeout(() => { loadAbandoned(); }, 300); if (ct.tagName === 'BUTTON') { toast('Marked contacted ✓'); closeModal(); } }
+});
+$('#omodal').addEventListener('submit', async (e) => {
+  e.preventDefault(); const no = $('#omodal').dataset.no; const fd = Object.fromEntries(new FormData(e.target));
   try {
-    await api(`/api/admin/orders/${box.dataset.no}`, { method: 'PATCH', body: JSON.stringify({ status: $('.o-status', box).value, trackingId: $('.o-track', box).value, courier: $('.o-courier', box).value }) });
-    toast('Saved ✓'); loadOrders(); loadStats();
+    if (e.target.id === 'ship') await patchOrder(no, fd);
+    else if (e.target.id === 'note' && fd.note.trim()) await patchOrder(no, { note: fd.note.trim() }, 'Note added ✓');
+    else if (e.target.id === 'edit-cust') await patchOrder(no, { customer: fd }, 'Details saved ✓');
   } catch (err) { toast(err.message); }
 });
-
-// ---------- abandoned ----------
-async function loadAbandoned() {
-  const list = await api('/api/admin/abandoned');
-  const open = list.filter((c) => c.status !== 'contacted');
-  $('#ab-count').textContent = open.length;
-  $('#abandoned').innerHTML = list.length ? list.map((c) => {
-    const first = (c.name || '').split(' ')[0] || 'there';
-    const msg = `Hi ${first}! You were just one step away from your ${cfg.brand} posture belt 🙂 Pay online now for ₹${cfg.bundles?.[0]?.prepaid ?? ''} with free delivery, or choose Cash on Delivery. Complete your order here: ${location.origin}/store#buy`;
-    return `<div class="order" data-cid="${esc(c._id)}">
-      <div class="o-top"><span><b>${esc(c.name || 'No name')}</b> <span class="o-when">${ago(c.updatedAt)}</span></span>${c.status === 'contacted' ? '<span class="badge b-paid">Contacted</span>' : '<span class="badge b-fail">Not contacted</span>'}</div>
-      <div class="o-mid"><a href="tel:+91${esc(c.phone)}">+91 ${esc(c.phone)}</a><span>${esc(c.city || '')} ${esc(c.pincode || '')}</span><span>${esc(c.bundleId)} · ${c.payMethod === 'cod' ? 'chose COD' : 'chose prepaid'}</span>
-        ${c.src === 'meta-ad' ? '<span class="badge b-ad">from Meta ad</span>' : `<span class="badge">${esc(c.src || 'direct')}</span>`}</div>
-      <div class="o-actions"><a class="ghost wa ab-wa" target="_blank" rel="noopener" href="${waLink(c.phone, msg)}">WhatsApp reminder</a>
-        <button class="ab-done">Mark contacted</button></div></div>`;
-  }).join('') : '<p class="empty">No abandoned checkouts 🎉</p>';
-}
-$('#abandoned').addEventListener('click', async (e) => {
-  const box = e.target.closest('.order'); if (!box) return;
-  if (e.target.classList.contains('ab-done') || e.target.classList.contains('ab-wa')) {
-    await api(`/api/admin/checkouts/${box.dataset.cid}`, { method: 'PATCH', body: JSON.stringify({ status: 'contacted' }) }).catch(() => {});
-    setTimeout(loadAbandoned, 300);
-  }
-});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#omodal').hidden) closeModal(); });
 
 // ---------- reviews ----------
-async function loadReviews() {
+async function reviewsHTML() {
   const list = await api('/api/admin/reviews');
-  $('#reviews').innerHTML = list.length ? list.map((r) => `<div class="order" data-rid="${esc(r._id)}">
+  return list.length ? list.map((r) => `<div class="order" data-rid="${esc(r._id)}">
     <div class="o-top"><span><b>${esc(r.name)}</b>, ${esc(r.city || '')} · ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} <span class="o-when">${when(r.createdAt)} · ${esc(r.orderNo)}</span></span>
       ${r.approved ? '<span class="badge b-paid">Shown on store</span>' : '<span class="badge">Hidden</span>'}</div>
     <div>${esc(r.text)}</div>
     <div class="o-actions"><button class="rv-toggle ${r.approved ? '' : 'primary'}" data-a="${r.approved ? '0' : '1'}">${r.approved ? 'Hide' : 'Approve & show'}</button></div></div>`).join('')
     : '<p class="empty">No customer reviews yet. Send happy customers the link: ' + esc(location.origin) + '/review</p>';
 }
-$('#reviews').addEventListener('click', async (e) => {
-  if (!e.target.classList.contains('rv-toggle')) return;
-  const box = e.target.closest('.order');
-  await api(`/api/admin/reviews/${box.dataset.rid}`, { method: 'PATCH', body: JSON.stringify({ approved: e.target.dataset.a === '1' }) });
-  loadReviews();
-});
+async function toggleReview(btn) {
+  const box = btn.closest('.order');
+  await api(`/api/admin/reviews/${box.dataset.rid}`, { method: 'PATCH', body: JSON.stringify({ approved: btn.dataset.a === '1' }) });
+  loadOrders();
+}
 
-// ---------- tabs / wiring ----------
-$$('.tab').forEach((t) => t.addEventListener('click', () => {
-  $$('.tab').forEach((x) => x.classList.toggle('on', x === t));
-  $$('.tab-panel').forEach((p) => (p.hidden = p.id !== `tab-${t.dataset.tab}`));
-}));
+// ---------- wiring ----------
 let qTimer;
 $('#q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(loadOrders, 300); });
-$('#status-filter').addEventListener('change', loadOrders);
 $('#range').addEventListener('change', loadStats);
 $('#refresh').addEventListener('click', () => { refreshAll(); toast('Refreshed'); });
 $('#test-alert').addEventListener('click', async (e) => {
@@ -205,9 +297,9 @@ $('#test-alert').addEventListener('click', async (e) => {
 });
 $('#logout').addEventListener('click', async () => { await api('/api/admin/logout', { method: 'POST' }); location.href = LOGIN; });
 
-async function refreshAll() { await Promise.all([loadStats(), loadOrders(), loadAbandoned(), loadReviews()]).catch((e) => e.message !== 'login' && toast(e.message)); }
+async function refreshAll() { await Promise.all([loadStats(), loadCounts(), loadAbandoned()]).then(loadOrders).catch((e) => e.message !== 'login' && toast(e.message)); }
 (async () => {
   cfg = await (await fetch('/api/config')).json();
   await refreshAll();
-  setInterval(() => { if (!document.hidden) { loadStats(); loadAbandoned(); } }, 60000);
+  setInterval(() => { if (!document.hidden) { loadStats(); loadCounts(); loadAbandoned(); } }, 60000);
 })();
