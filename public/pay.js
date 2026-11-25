@@ -1,7 +1,7 @@
 // Pay link: /pay/MK1004 – lets a customer finish paying for an order whose online payment didn't complete.
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const orderNo = decodeURIComponent(location.pathname.split('/').pop() || '').toUpperCase();
+const orderNo = (new URLSearchParams(location.search).get('o') || '').trim().toUpperCase();
 const card = $('#card');
 let cfg = {}; let info = null;
 
@@ -77,6 +77,7 @@ async function start() {
 
 (async () => {
   try {
+    if (!/^MK\d+$/.test(orderNo)) throw new Error('This link is incomplete. Please use the link we sent you, or contact us.');
     cfg = await api('/api/config').catch(() => ({}));
     if (cfg.metaPixelId) loadPixel(cfg.metaPixelId);
     info = await api(`/api/pay/${encodeURIComponent(orderNo)}`);

@@ -495,7 +495,8 @@ app.get(['/', '/store'], (req, res) => {
   res.redirect(302, '/store' + q);
 });
 app.get(['/policies', '/review'], (req, res) => res.sendFile(path.join(ROOT, `public${req.path}.html`)));
-app.get('/pay/:orderNo', (_req, res) => res.set('Cache-Control', 'no-cache').sendFile(path.join(ROOT, 'public', 'pay.html')));
+// pretty link /pay/MK1004 → the static pay page (on Vercel, public/*.html is served by the CDN, not this function)
+app.get('/pay/:orderNo', (req, res) => res.redirect(302, `/pay?o=${encodeURIComponent(clean(req.params.orderNo, 20).toUpperCase())}`));
 app.use((req, res) => (req.path.startsWith('/api/') ? res.status(404).json({ error: 'Not found' }) : res.redirect(302, '/')));
 
 if (config.isProd && (!config.adminPassword || !config.sessionSecret)) {
