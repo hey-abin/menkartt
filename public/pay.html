@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Complete your order – Menkartt</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .pay-wrap { max-width: 440px; margin: 0 auto; padding: 22px 18px 60px; }
+  .pay-card { background: #fff; border-radius: 22px; padding: 22px 20px; box-shadow: var(--shadow); text-align: center; }
+  .pay-card img { width: 150px; height: 150px; object-fit: contain; border-radius: 16px; background: #fff; }
+  .pay-card h1 { font-size: 22px; margin: 12px 0 4px; }
+  .pay-amt { font-size: 44px; font-weight: 800; margin: 10px 0 2px; }
+  .pay-line { color: var(--muted); font-size: 14.5px; margin: 2px 0; }
+  .pay-ok { color: var(--green); font-weight: 800; }
+  .pay-trust { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 14px; }
+  .pay-card .btn { margin-top: 16px; width: 100%; }
+  .pay-err { color: #b91c1c; font-weight: 700; margin-top: 12px; }
+  .mock { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 20px; }
+  .mock div { background: #fff; padding: 20px; border-radius: 16px; text-align: center; }
+</style>
+</head>
+<body>
+<header class="header"><div class="container header-in"><a class="logo" href="/store"><span class="logo-mark">M</span><span class="logo-word">Menkartt</span></a><a class="header-rating" href="/store">Shop</a></div></header>
+<main class="pay-wrap">
+  <div class="pay-card" id="card">
+    <p class="pay-line" id="loading">Loading your order…</p>
+  </div>
+  <p class="tiny muted center" style="margin-top:14px">Questions? Email <a href="mailto:support.menkartt2@gmail.com">support.menkartt2@gmail.com</a></p>
+</main>
+<div class="mock" id="mock" hidden><div><b>Test payment</b><p>No real money (local test mode).</p><button class="btn btn-buy" id="mock-ok" type="button">Simulate success</button></div></div>
+<script src="/pay.js" type="module"></script>
+</body>
+</html>

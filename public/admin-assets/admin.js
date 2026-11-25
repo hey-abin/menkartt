@@ -102,7 +102,8 @@ async function loadOrders() {
   $('#orders').innerHTML = list.length ? list.map((o) => {
     const c = o.customer;
     const unpaid = ['awaiting', 'failed'].includes(o.paymentStatus);
-    const helpMsg = `Hi ${c.name.split(' ')[0]}, this is ${cfg.brand}. You tried to order our posture belt (${o.bundleTitle}) but the payment didn't go through, so no money was taken. Would you still like it? You can order again here: ${location.origin}/store – choose UPI and approve the request in your UPI app within a few minutes, or choose Cash on Delivery (₹${o.payMethod === 'cod' ? o.amount : (o.amount + 50)}). Happy to help if you have any questions.`;
+    const payLink = `${location.origin}/pay/${o.orderNo}`;
+    const helpMsg = `Hi ${c.name.split(' ')[0]}, this is ${cfg.brand}. You tried to order our posture belt (${o.bundleTitle}) but the payment didn't go through, so no money was taken.\n\nYou can finish your order here – ₹${o.amount}, your address is already saved:\n${payLink}\n\nIf you pay by UPI, approve the request in your UPI app within a few minutes. Prefer Cash on Delivery? Order again at ${location.origin}/store and choose COD (₹${o.amount + 50}). Happy to help with any questions!`;
     const confirmMsg = o.payMethod === 'cod'
       ? `Hi ${c.name.split(' ')[0]}, thank you for ordering the ${cfg.brand} posture belt (order ${o.orderNo}, ₹${o.amount} Cash on Delivery). Please reply YES to confirm your order. Delivery address: ${c.address}, ${c.city} ${c.pincode}.`
       : `Hi ${c.name.split(' ')[0]}, thank you for your order ${o.orderNo} of the ${cfg.brand} posture belt. Payment received ✅ We'll message you when it ships.`;
@@ -117,7 +118,8 @@ async function loadOrders() {
         <input class="o-track" placeholder="Tracking / AWB no." value="${esc(o.trackingId || '')}">
         <button class="primary o-save">Save</button>
         ${unpaid
-          ? `<a class="ghost wa" target="_blank" rel="noopener" href="${waLink(c.phone, helpMsg)}">WhatsApp: help to pay</a>`
+          ? `<a class="ghost wa" target="_blank" rel="noopener" href="${waLink(c.phone, helpMsg)}">WhatsApp: help to pay</a>
+        <button class="ghost o-copy" type="button" data-link="${esc(payLink)}">Copy pay link</button>`
           : `<a class="ghost wa" target="_blank" rel="noopener" href="${waLink(c.phone, confirmMsg)}">WhatsApp: confirm</a>
         <a class="ghost" target="_blank" rel="noopener" href="${waLink(c.phone, shipMsg)}">WhatsApp: shipped</a>`}
       </div>
@@ -131,6 +133,11 @@ async function loadOrders() {
 }
 
 $('#orders').addEventListener('click', async (e) => {
+  if (e.target.classList.contains('o-copy')) {
+    const link = e.target.dataset.link;
+    try { await navigator.clipboard.writeText(link); toast('Pay link copied ✓'); } catch { prompt('Copy this pay link:', link); }
+    return;
+  }
   if (!e.target.classList.contains('o-save')) return;
   const box = e.target.closest('.order');
   try {

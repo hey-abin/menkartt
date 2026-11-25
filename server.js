@@ -238,6 +238,39 @@ app.post('/api/orders', rateLimit('orders', 8, 10 * 60_000), async (req, res) =>
   }
 });
 
+// ---------- pay links: menkartt.in/pay/MK1004 lets a customer finish an unpaid online order ----------
+// Never expires: each visit creates a fresh Razorpay order for the same amount, so paying marks THIS order paid.
+const payable = (o) => o && o.payMethod === 'prepaid' && ['awaiting', 'failed'].includes(o.paymentStatus) && !['cancelled', 'rto'].includes(o.status);
+app.get('/api/pay/:orderNo', rateLimit('payinfo', 60, 10 * 60_000), async (req, res) => {
+  const order = await db.findOne('orders', { _id: clean(req.params.orderNo, 20).toUpperCase() });
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+  if (order.paymentStatus === 'paid') return res.json({ paid: true, orderNo: order.orderNo });
+  if (!payable(order)) return res.status(400).json({ error: 'This order can’t be paid online. Please contact us.' });
+  // only what the customer needs to recognise their order – no phone or full address
+  res.json({ orderNo: order.orderNo, amount: order.amount, bundleTitle: order.bundleTitle, qty: order.qty, firstName: (order.customer?.name || '').split(' ')[0], city: order.customer?.city || '' });
+});
+app.post('/api/pay/:orderNo/start', rateLimit('paystart', 20, 10 * 60_000), async (req, res) => {
+  const order = await db.findOne('orders', { _id: clean(req.params.orderNo, 20).toUpperCase() });
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+  if (order.paymentStatus === 'paid') return res.json({ paid: true, orderNo: order.orderNo });
+  if (!payable(order)) return res.status(400).json({ error: 'This order can’t be paid online.' });
+  let rzId;
+  if (razorpayEnabled()) {
+    const rz = await createRazorpayOrder({ amountRupees: order.amount, receipt: order.orderNo, notes: { orderNo: order.orderNo, via: 'pay-link' } });
+    rzId = rz.id;
+  } else if (config.paymentMock) {
+    rzId = `mock_${id(6)}`;
+  } else {
+    return res.status(503).json({ error: 'Online payment is not available right now.' });
+  }
+  const now = new Date();
+  await db.updateOne('orders', { _id: order._id }, {
+    razorpayOrderId: rzId, updatedAt: now,
+    history: [...(order.history || []), { ts: now, msg: 'Customer opened the pay link' }],
+  });
+  res.json({ orderNo: order.orderNo, amount: order.amount, razorpay: { orderId: rzId, keyId: config.razorpayKeyId || null, amountPaise: order.amount * 100, mock: !razorpayEnabled() } });
+});
+
 app.post('/api/payments/verify', rateLimit('verify', 20, 10 * 60_000), async (req, res) => {
   const b = req.body || {};
   const order = await db.findOne('orders', { _id: clean(b.orderNo, 20) });
@@ -462,6 +495,7 @@ app.get(['/', '/store'], (req, res) => {
   res.redirect(302, '/store' + q);
 });
 app.get(['/policies', '/review'], (req, res) => res.sendFile(path.join(ROOT, `public${req.path}.html`)));
+app.get('/pay/:orderNo', (_req, res) => res.set('Cache-Control', 'no-cache').sendFile(path.join(ROOT, 'public', 'pay.html')));
 app.use((req, res) => (req.path.startsWith('/api/') ? res.status(404).json({ error: 'Not found' }) : res.redirect(302, '/')));
 
 if (config.isProd && (!config.adminPassword || !config.sessionSecret)) {
