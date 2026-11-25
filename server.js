@@ -378,6 +378,10 @@ app.use('/api/admin', requireAdmin);
 const IST = 330 * 60_000;
 const dayKey = (d) => new Date(new Date(d).getTime() + IST).toISOString().slice(0, 10);
 const VALID_ORDER = (o) => o.status !== 'pending_payment' && !['cancelled'].includes(o.status);
+// Real money: paid online, or a COD order the owner has actually placed on Meesho (or later). Never cancelled/RTO.
+const REAL_MONEY = (o) => !['cancelled', 'rto', 'pending_payment'].includes(o.status)
+  && (o.paymentStatus === 'paid' || o.paymentStatus === 'cod_collected' || ['meesho_ordered', 'shipped', 'delivered'].includes(o.status));
+const realAmount = (o) => (REAL_MONEY(o) ? o.amount : 0);
 
 function range(q) {
   const to = q.to ? new Date(q.to) : new Date();
@@ -410,7 +414,11 @@ app.get('/api/admin/stats', async (req, res) => {
   const valid = orders.filter(VALID_ORDER);
   const delivered = valid.filter((o) => o.status === 'delivered');
   const rto = orders.filter((o) => o.status === 'rto');
-  const revenue = valid.filter((o) => o.status !== 'rto').reduce((s, o) => s + o.amount, 0);
+  const real = valid.filter(REAL_MONEY);
+  const revenue = real.reduce((s, o) => s + o.amount, 0);
+  const revenuePrepaid = real.filter((o) => o.paymentStatus === 'paid').reduce((s, o) => s + o.amount, 0);
+  const revenueCod = revenue - revenuePrepaid;
+  const pendingCod = valid.filter((o) => o.payMethod === 'cod' && ['new', 'confirmed'].includes(o.status));
   const prepaid = valid.filter((o) => o.payMethod === 'prepaid');
   const abandonedCut = Date.now() - 20 * 60_000;
   const abandoned = checkouts.filter((c) => c.status !== 'converted' && new Date(c.updatedAt).getTime() < abandonedCut);
@@ -431,7 +439,7 @@ app.get('/api/admin/stats', async (req, res) => {
     days[new Date(t).toISOString().slice(0, 10)] = { visitors: new Set(), orders: 0, revenue: 0 };
   }
   events.filter((e) => e.type === 'page_view').forEach((e) => days[dayKey(e.ts)]?.visitors.add(e.vid));
-  valid.forEach((o) => { const d = days[dayKey(o.createdAt)]; if (d) { d.orders += 1; d.revenue += o.amount; } });
+  valid.forEach((o) => { const d = days[dayKey(o.createdAt)]; if (d) { d.orders += 1; d.revenue += realAmount(o); } });
   const daily = Object.entries(days).map(([date, d]) => ({ date, visitors: d.visitors.size, orders: d.orders, revenue: d.revenue }));
 
   // per-source table
@@ -441,14 +449,15 @@ app.get('/api/admin/stats', async (req, res) => {
     if (e.type === 'page_view') S(e.src || 'direct').visitors.add(e.vid);
     if (e.type === 'add_to_cart') S(e.src || 'direct').addToCart.add(e.vid);
   });
-  valid.forEach((o) => { const s = S(o.src || 'direct'); s.orders += 1; s.revenue += o.amount; });
+  valid.forEach((o) => { const s = S(o.src || 'direct'); s.orders += 1; s.revenue += realAmount(o); });
   const campaigns = {};
-  valid.forEach((o) => { if (o.campaign) { const c = (campaigns[o.campaign] ??= { campaign: o.campaign, orders: 0, revenue: 0 }); c.orders += 1; c.revenue += o.amount; } });
+  valid.forEach((o) => { if (o.campaign) { const c = (campaigns[o.campaign] ??= { campaign: o.campaign, orders: 0, revenue: 0 }); c.orders += 1; c.revenue += realAmount(o); } });
 
   res.json({
-    from, to, funnel, revenue,
+    from, to, funnel, revenue, revenuePrepaid, revenueCod, realOrders: real.length,
+    pendingCodCount: pendingCod.length, pendingCodAmount: pendingCod.reduce((s, o) => s + o.amount, 0),
     ordersCount: valid.length, prepaidCount: prepaid.length, codCount: valid.length - prepaid.length,
-    aov: valid.length ? Math.round(revenue / valid.length) : 0,
+    aov: real.length ? Math.round(revenue / real.length) : 0,
     deliveredCount: delivered.length, rtoCount: rto.length,
     awaitingPayment: orders.filter((o) => o.status === 'pending_payment').length,
     failedPayments: orders.filter((o) => o.paymentStatus === 'failed').length,
@@ -467,14 +476,13 @@ function sectionOf(o) {
   if (['awaiting', 'failed'].includes(o.paymentStatus) || o.status === 'pending_payment') return 'unpaid';
   if (o.status === 'delivered') return 'delivered';
   if (o.status === 'shipped') return 'shipped';
-  if (o.status === 'meesho_ordered') return 'meesho_ordered';
-  if (o.status === 'confirmed' || (o.status === 'new' && o.paymentStatus === 'paid')) return 'to_order';
+  if (o.status === 'meesho_ordered' || o.status === 'confirmed' || (o.status === 'new' && o.paymentStatus === 'paid')) return 'meesho';
   return 'to_confirm';
 }
 app.get('/api/admin/order-counts', async (_req, res) => {
   const list = await db.find('orders', {}, { sort: { createdAt: -1 }, limit: 2000 });
   const counts = {};
-  for (const o of list) { const k = sectionOf(o); counts[k] = (counts[k] || 0) + 1; }
+  for (const o of list) { const k = sectionOf(o); counts[k] = (counts[k] || 0) + 1; if (k === 'meesho' && o.status !== 'meesho_ordered') counts.meesho_todo = (counts.meesho_todo || 0) + 1; }
   counts.all = list.length;
   res.json(counts);
 });
@@ -483,6 +491,8 @@ app.get('/api/admin/orders', async (req, res) => {
   let list = await db.find('orders', {}, { sort: { createdAt: -1 }, limit: 2000 });
   if (sec === 'real') list = list.filter((o) => ['cod', 'paid', 'cod_collected'].includes(o.paymentStatus));
   else if (sec !== 'all') list = list.filter((o) => sectionOf(o) === sec);
+  // Meesho section: the ones still to place first
+  if (sec === 'meesho') list.sort((a, b) => (a.status === 'meesho_ordered') - (b.status === 'meesho_ordered'));
   const q = clean(req.query.q, 60).toLowerCase();
   if (q) list = list.filter((o) => [o.orderNo, o.customer.name, o.customer.phone, o.customer.city, o.customer.pincode].join(' ').toLowerCase().includes(q));
   res.json(list);

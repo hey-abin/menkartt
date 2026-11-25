@@ -32,7 +32,8 @@ async function loadStats() {
   const s = await api(`/api/admin/stats?from=${from.toISOString()}&to=${to.toISOString()}`);
   const pct = (a, b) => (b ? ((100 * a) / b).toFixed(1) + '%' : '–');
   const kpis = [
-    { l: 'Revenue', v: inr(s.revenue), sub: `AOV ${inr(s.aov)}`, hi: true },
+    { l: 'Revenue (real money)', v: inr(s.revenue), sub: `${inr(s.revenueCod)} COD ordered on Meesho · ${inr(s.revenuePrepaid)} paid online`, hi: true },
+    { l: 'COD not yet on Meesho', v: s.pendingCodCount, sub: `${inr(s.pendingCodAmount)} – not counted in revenue yet`, warn: s.pendingCodCount > 0 },
     { l: 'Orders', v: s.ordersCount, sub: `${s.prepaidCount} prepaid · ${s.codCount} COD` },
     { l: 'Prepaid share', v: pct(s.prepaidCount, s.ordersCount), sub: 'goal: 50%+' },
     { l: 'Conversion rate', v: s.conversionRate + '%', sub: 'orders ÷ visitors' },
@@ -89,10 +90,9 @@ function drawChart(daily) {
 const STATUS = { pending_payment: 'Payment not completed', new: 'New', confirmed: 'Confirmed', meesho_ordered: 'Ordered on Meesho', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled', rto: 'Returned (RTO)' };
 const SECTIONS = [
   { k: 'to_confirm', l: '1 · To confirm', hint: 'New COD orders. WhatsApp or call the customer. When they reply YES, open the order and press “Confirmed”. No reply in 24 h → Cancel.' },
-  { k: 'to_order', l: '2 · Order on Meesho', hint: 'Confirmed or already paid. Open it, use the copy buttons to place the order on Meesho, paste the Meesho order ID and press “Ordered on Meesho”.' },
-  { k: 'meesho_ordered', l: '3 · Ordered on Meesho', hint: 'Waiting for Meesho to ship. When it ships, add the tracking number, press “Shipped” and send the WhatsApp.' },
-  { k: 'shipped', l: '4 · Shipped', hint: 'On the way. Press “Delivered” when it arrives (COD cash is then marked collected).' },
-  { k: 'delivered', l: '5 · Delivered', hint: 'Done. Ask happy customers for a review: ' },
+  { k: 'meesho', l: '2 · Meesho', hint: '“Place on Meesho” = confirmed or paid: open it, copy the details into Meesho, paste the Meesho order ID and press “Ordered on Meesho”. “Ordered on Meesho ✓” = waiting for Meesho to ship; when it ships, add tracking and press “Shipped”.' },
+  { k: 'shipped', l: '3 · Shipped', hint: 'On the way. Press “Delivered” when it arrives (COD cash is then marked collected).' },
+  { k: 'delivered', l: '4 · Delivered', hint: 'Done. Ask happy customers for a review: ' },
   { k: 'unpaid', l: 'Payment not completed', hint: 'Started paying online but didn’t finish – not orders yet. Open one and send the customer their pay link.' },
   { k: 'abandoned', l: 'Abandoned checkouts', hint: 'Gave their phone number but didn’t place an order. A friendly WhatsApp brings many back.' },
   { k: 'closed', l: 'Cancelled / RTO', hint: 'Cancelled orders and parcels returned to the seller.' },
@@ -120,15 +120,34 @@ function messages(o) {
       ? `नमस्ते ${f} जी 🙏\nMenkartt से आपका ऑर्डर ${o.orderNo} मिला है:\nपोस्चर करेक्टर बेल्ट (${o.bundleTitle}) – ₹${amt} कैश ऑन डिलीवरी\nपता: ${fullAddress(c)}\n\nऑर्डर कन्फर्म करने के लिए *YES* लिखकर भेजें।\n\nHi ${f}, we received your Menkartt order ${o.orderNo} (₹${amt} Cash on Delivery). Please reply YES to confirm.`
       : `नमस्ते ${f} जी 🙏 आपका ₹${amt} का भुगतान मिल गया है। ऑर्डर ${o.orderNo} जल्द भेजा जाएगा।\n\nHi ${f}, payment received for order ${o.orderNo}. We'll message you when it ships.`,
     shipped: `नमस्ते ${f} जी, आपका Menkartt ऑर्डर ${o.orderNo} भेज दिया गया है 🚚${track}${cod ? `\nडिलीवरी पर ₹${amt} तैयार रखें।` : ''}\n\nHi ${f}, your order ${o.orderNo} has been shipped.${cod ? ` Please keep ₹${amt} ready.` : ''}`,
+    placed: `नमस्ते ${f} जी 🙏 आपका Menkartt ऑर्डर ${o.orderNo} कन्फर्म हो गया है और पैक हो रहा है। भेजते ही ट्रैकिंग नंबर भेजेंगे।${cod ? `\nडिलीवरी पर ₹${amt} तैयार रखें।` : ''}\n\nHi ${f}, your Menkartt order ${o.orderNo} is confirmed and being packed. We'll send tracking as soon as it ships.${cod ? ` Please keep ₹${amt} ready.` : ''}`,
+    review: `नमस्ते ${f} जी 🙏 Menkartt बेल्ट लेने के लिए धन्यवाद! उम्मीद है आपको पसंद आया। 1 मिनट में अपना रिव्यू लिखें:\n${location.origin}/review (ऑर्डर नं. ${o.orderNo})\n\nHi ${f}, thank you for buying from Menkartt! If you like the belt, please leave a quick review: ${location.origin}/review (order ${o.orderNo})`,
+    closed: `नमस्ते ${f} जी, Menkartt से आपके ऑर्डर ${o.orderNo} के बारे में।\n\nHi ${f}, this is Menkartt about your order ${o.orderNo}.`,
     pay: `नमस्ते ${f} जी 🙏 Menkartt से। आपका ऑनलाइन भुगतान पूरा नहीं हुआ, कोई पैसा नहीं कटा।\nयहाँ से ₹${amt} भरकर ऑर्डर पूरा करें (पता पहले से सेव है):\n${location.origin}/pay/${o.orderNo}\nया ${location.origin}/store पर कैश ऑन डिलीवरी चुनें।\n\nHi ${f}, your payment didn't go through (no money taken). Finish your order here: ${location.origin}/pay/${o.orderNo} – or order again with Cash on Delivery at ${location.origin}/store`,
   };
 }
+
+function quickMsg(o) {
+  const m = messages(o);
+  if (['awaiting', 'failed'].includes(o.paymentStatus) || o.status === 'pending_payment') return [m.pay, 'Send pay link'];
+  if (['cancelled', 'rto'].includes(o.status)) return [m.closed, 'Message'];
+  if (o.status === 'delivered') return [m.review, 'Ask review'];
+  if (o.status === 'shipped') return [m.shipped, 'Shipped msg'];
+  if (o.status === 'meesho_ordered') return [m.placed, 'Order placed msg'];
+  if (o.status === 'confirmed' || o.paymentStatus === 'paid') return [m.confirm, o.paymentStatus === 'paid' ? 'Payment msg' : 'Confirm again'];
+  return [m.confirm, 'Confirm order'];
+}
+function abMsg(c) {
+  const f = first(c.name);
+  return `नमस्ते ${f} जी 🙏 आपने Menkartt पोस्चर करेक्टर बेल्ट का ऑर्डर शुरू किया था पर पूरा नहीं हुआ। कैश ऑन डिलीवरी (₹${cfg.bundles?.[0]?.cod ?? ''}) से ऑर्डर करें, घर पर पैसे दें:\n${location.origin}/store\n\nHi ${f}, you were one step away from your Menkartt posture belt. Order with Cash on Delivery here: ${location.origin}/store`;
+}
+const WA_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .3-3.3-.7-2.8-1.2-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2.1 1-2.4c.3-.3.6-.3.8-.3h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.3.5-.4.5c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1c.2-.3.4-.2.7-.1l2 .9c.3.2.5.2.6.4.1.1.1.7-.1 1.3z"/></svg>';
 
 function renderSections() {
   const ab = abCache.filter((c) => c.status !== 'contacted').length;
   $('#secs').innerHTML = SECTIONS.map((s) => {
     const n = s.k === 'abandoned' ? ab : s.k === 'reviews' ? '' : (counts[s.k] || 0);
-    const urgent = ['to_confirm', 'to_order', 'abandoned', 'unpaid'].includes(s.k) && n > 0;
+    const urgent = ['to_confirm', 'abandoned', 'unpaid'].includes(s.k) && n > 0 || (s.k === 'meesho' && (counts.meesho_todo || 0) > 0);
     return `<button class="sec ${s.k === section ? 'on' : ''}" data-sec="${s.k}">${s.l}${n !== '' ? ` <span class="cnt ${urgent ? 'urgent' : ''}">${n}</span>` : ''}</button>`;
   }).join('');
   const s = SECTIONS.find((x) => x.k === section);
@@ -137,16 +156,19 @@ function renderSections() {
 
 function orderRow(o) {
   const c = o.customer;
-  return `<button class="row" data-no="${esc(o.orderNo)}">
+  const [msg, label] = quickMsg(o);
+  return `<div class="row" role="button" tabindex="0" data-no="${esc(o.orderNo)}">
     <span class="r-main"><b>${esc(c.name)}</b><span class="r-phone">+91 ${esc(c.phone)}</span></span>
     <span class="r-meta">${esc(o.orderNo)} · ${when(o.createdAt)} · ${esc(c.city)}${o.meeshoOrderId ? ' · Meesho ' + esc(o.meeshoOrderId) : ''}</span>
-    <span class="r-right"><b>${inr(o.amount)}</b>${payBadge(o)}</span></button>`;
+    <span class="r-right"><b>${inr(o.amount)}</b>${payBadge(o)}${section === 'meesho' ? (o.status === 'meesho_ordered' ? '<span class="badge b-paid">Ordered on Meesho ✓</span>' : '<span class="badge b-todo">Place on Meesho</span>') : ''}</span>
+    <a class="wa-mini" target="_blank" rel="noopener" href="${waLink(c.phone, msg)}" title="${esc(label)}">${WA_ICON}<span>${esc(label)}</span></a></div>`;
 }
 function abRow(c) {
-  return `<button class="row" data-cid="${esc(c._id)}">
+  return `<div class="row" role="button" tabindex="0" data-cid="${esc(c._id)}">
     <span class="r-main"><b>${esc(c.name || 'No name')}</b><span class="r-phone">+91 ${esc(c.phone)}</span></span>
     <span class="r-meta">${ago(c.updatedAt)} · ${esc(c.city || '')} ${esc(c.pincode || '')} · chose ${c.payMethod === 'cod' ? 'COD' : 'online'}</span>
-    <span class="r-right">${c.status === 'contacted' ? '<span class="badge b-paid">Contacted</span>' : '<span class="badge b-fail">Not contacted</span>'}</span></button>`;
+    <span class="r-right">${c.status === 'contacted' ? '<span class="badge b-paid">Contacted</span>' : '<span class="badge b-fail">Not contacted</span>'}</span>
+    <a class="wa-mini" target="_blank" rel="noopener" data-contacted="${esc(c._id)}" href="${waLink(c.phone, abMsg(c))}">${WA_ICON}<span>Send reminder</span></a></div>`;
 }
 
 async function loadOrders() {
@@ -185,8 +207,11 @@ function openOrder(o) {
     <div class="m-sec"><div class="m-t">Message the customer</div><div class="acts">
       ${unpaid
         ? `<a class="ghost wa" target="_blank" rel="noopener" href="${waLink(c.phone, m.pay)}">WhatsApp: pay link</a>${copyBtn(`${location.origin}/pay/${o.orderNo}`).replace('>Copy<', '>Copy pay link<')}`
-        : `<a class="ghost wa" target="_blank" rel="noopener" href="${waLink(c.phone, m.confirm)}">WhatsApp: confirm (हिंदी + English)</a>
-           <a class="ghost" target="_blank" rel="noopener" href="${waLink(c.phone, m.shipped)}">WhatsApp: shipped</a>`}
+        : `<a class="ghost wa" target="_blank" rel="noopener" href="${waLink(c.phone, quickMsg(o)[0])}">WhatsApp: ${esc(quickMsg(o)[1].toLowerCase())}</a>
+           <a class="ghost" target="_blank" rel="noopener" href="${waLink(c.phone, m.confirm)}">Confirm msg</a>
+           <a class="ghost" target="_blank" rel="noopener" href="${waLink(c.phone, m.placed)}">Placed msg</a>
+           <a class="ghost" target="_blank" rel="noopener" href="${waLink(c.phone, m.shipped)}">Shipped msg</a>
+           <a class="ghost" target="_blank" rel="noopener" href="${waLink(c.phone, m.review)}">Review request</a>`}
       <a class="ghost" href="tel:+91${esc(c.phone)}">Call</a></div></div>
 
     <div class="m-sec"><div class="m-t">Customer details for Meesho <button class="cp big" data-copy="${esc(`${c.name}\n${c.phone}\n${fullAddress(c)}`)}">Copy all</button></div>
@@ -214,7 +239,7 @@ function openOrder(o) {
 
 function openAbandoned(c) {
   const f = first(c.name);
-  const msg = `नमस्ते ${f} जी 🙏 आपने Menkartt पोस्चर करेक्टर बेल्ट का ऑर्डर शुरू किया था पर पूरा नहीं हुआ। कैश ऑन डिलीवरी (₹${cfg.bundles?.[0]?.cod ?? ''}) से ऑर्डर करें, घर पर पैसे दें:\n${location.origin}/store\n\nHi ${f}, you were one step away from your Menkartt posture belt. Order with Cash on Delivery here: ${location.origin}/store`;
+  const msg = abMsg(c);
   $('#mcard').innerHTML = `
     <div class="m-head"><div><div class="m-no">${esc(c.name || 'No name')} <span class="o-when">${ago(c.updatedAt)}</span></div>
       <div class="m-badges">${c.status === 'contacted' ? '<span class="badge b-paid">Contacted</span>' : '<span class="badge b-fail">Not contacted</span>'} ${c.src === 'meta-ad' ? '<span class="badge b-ad">from Meta ad</span>' : ''}</div></div>
@@ -237,6 +262,11 @@ async function patchOrder(no, body, msg = 'Saved ✓') {
 
 $('#secs').addEventListener('click', (e) => { const b = e.target.closest('[data-sec]'); if (!b) return; section = b.dataset.sec; loadOrders(); });
 $('#olist').addEventListener('click', (e) => {
+  const wa = e.target.closest('.wa-mini');
+  if (wa) {
+    if (wa.dataset.contacted) api(`/api/admin/checkouts/${wa.dataset.contacted}`, { method: 'PATCH', body: JSON.stringify({ status: 'contacted' }) }).then(() => setTimeout(loadAbandoned, 300)).catch(() => {});
+    return;
+  }
   const r = e.target.closest('.row'); if (r) {
     if (r.dataset.no) openOrder(listCache.find((o) => o.orderNo === r.dataset.no));
     else if (r.dataset.cid) openAbandoned(abCache.find((c) => c._id === r.dataset.cid));
@@ -267,6 +297,7 @@ $('#omodal').addEventListener('submit', async (e) => {
   } catch (err) { toast(err.message); }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#omodal').hidden) closeModal(); });
+$('#olist').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.classList.contains('row')) e.target.click(); });
 
 // ---------- reviews ----------
 async function reviewsHTML() {
@@ -296,6 +327,20 @@ $('#test-alert').addEventListener('click', async (e) => {
   finally { b.disabled = false; b.textContent = t; }
 });
 $('#logout').addEventListener('click', async () => { await api('/api/admin/logout', { method: 'POST' }); location.href = LOGIN; });
+
+// ---------- screens: Orders | Overview (remembered; #overview in the URL opens Overview) ----------
+function showView(v) {
+  $$('.vbtn').forEach((b) => b.classList.toggle('on', b.dataset.view === v));
+  $('#view-orders').hidden = v !== 'orders'; $('#view-overview').hidden = v !== 'overview';
+  document.body.classList.toggle('v-orders', v === 'orders');
+  try { localStorage.setItem('dash-view', v); } catch {}
+  history.replaceState(null, '', v === 'overview' ? '#overview' : location.pathname);
+  if (v === 'overview') loadStats().catch(() => {});
+}
+$$('.vbtn').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
+let startView = 'orders';
+try { startView = location.hash === '#overview' ? 'overview' : (localStorage.getItem('dash-view') || 'orders'); } catch {}
+showView(startView === 'overview' ? 'overview' : 'orders');
 
 async function refreshAll() { await Promise.all([loadStats(), loadCounts(), loadAbandoned()]).then(loadOrders).catch((e) => e.message !== 'login' && toast(e.message)); }
 (async () => {

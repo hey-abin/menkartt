@@ -125,3 +125,17 @@ details.edit summary { cursor: pointer; color: var(--blue); font-weight: 600; fo
 .note { display: flex; gap: 8px; } .note input { flex: 1; }
 .hist { margin: 0; padding-left: 18px; color: #344054; font-size: 13px; display: grid; gap: 3px; }
 .hist span { color: var(--muted); font-size: 12px; }
+
+/* ---- two screens: Orders | Overview ---- */
+.views { display: inline-flex; background: var(--bg); border: 1px solid var(--line); border-radius: 11px; padding: 3px; gap: 3px; }
+.vbtn { border: 0; background: none; padding: 7px 16px; border-radius: 8px; font-weight: 700; color: var(--muted); }
+.vbtn.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(16, 24, 40, .12); }
+.view { display: grid; gap: 16px; }
+body.v-orders #range { display: none; }
+.b-todo { background: #fff4dc; color: #a46a00; }
+
+/* quick WhatsApp button on every lead */
+.row { cursor: pointer; grid-template-columns: 1fr auto; }
+.wa-mini { grid-column: 1 / -1; justify-self: start; display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 6px 12px; border-radius: 99px; background: #25d366; color: #fff; text-decoration: none; font-weight: 700; font-size: 13px; }
+.wa-mini:hover { background: #1ebe5b; }
+@media (min-width: 720px) { .row { grid-template-columns: 1fr auto auto; } .r-right { grid-column: 2; } .wa-mini { grid-column: 3; grid-row: 1 / span 2; align-self: center; margin-top: 0; } }
