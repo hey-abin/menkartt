@@ -314,15 +314,15 @@
   <div class="cn-card">
     <button class="cu-x" id="cu-close" type="button" aria-label="Close">×</button>
     <div class="cu-tick">✓</div>
-    <h3 id="cu-title">Your COD order is placed!<br><span class="hi-big">आपका ऑर्डर हो गया है!</span></h3>
+    <h3 id="cu-title">Your COD order is placed!</h3>
     <p>Order <b id="cu-no">#</b> · Cash on Delivery ₹<span id="cu-cod">449</span></p>
-    <p class="cu-wa"><b>Check WhatsApp:</b> our team will message you to confirm.<br><span class="hi">कन्फर्म करने के लिए हमारी टीम WhatsApp पर मैसेज करेगी।</span></p>
+    <p class="cu-wa"><b>Check WhatsApp:</b> our team will message you to confirm.</p>
     <div class="cu-offer">
-      <b>Want ₹<span class="cu-save">50</span> off? · ₹<span class="cu-save">50</span> बचाना चाहते हैं?</b>
+      <b>Want ₹<span class="cu-save">50</span> off?</b>
       <span>Pay ₹<span class="cu-pre">399</span> online now instead of ₹<span class="cu-cod2">449</span> at the door. Optional – your COD order stays as it is if you skip this.</span>
     </div>
-    <button class="btn btn-buy btn-block btn-xl" id="cu-pay" type="button"><span>Pay ₹<span class="cu-pre">399</span> now · अभी भुगतान करें</span></button>
-    <button class="btn btn-ghost btn-block" id="cu-skip" type="button"><span>No thanks, I'll pay cash · नकद दूँगा</span></button>
+    <button class="btn btn-buy btn-block btn-xl" id="cu-pay" type="button"><span>Pay ₹<span class="cu-pre">399</span> now</span></button>
+    <button class="btn btn-ghost btn-block" id="cu-skip" type="button"><span>No thanks, I'll pay cash</span></button>
   </div>
 </div>
 <div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
@@ -337,37 +337,37 @@
     <div class="sheet-packs" id="sheet-packs"></div>
 
     <fieldset>
-      <legend>Delivery details <span class="hi">· डिलीवरी का पता</span></legend>
-      <label>Full name <span class="hi">· पूरा नाम</span><input name="name" autocomplete="name" required maxlength="80" placeholder="e.g. Rahul Sharma"></label>
-      <label>Mobile number <span class="hi">· मोबाइल नंबर</span>
+      <legend>Delivery details</legend>
+      <label>Full name<input name="name" autocomplete="name" required maxlength="80" placeholder="e.g. Rahul Sharma"></label>
+      <label>Mobile number
         <div class="phone-wrap"><span>+91</span><input name="phone" inputmode="numeric" autocomplete="tel-national" required maxlength="10" placeholder="10-digit mobile"></div>
       </label>
       <div class="row2">
-        <label>PIN code <span class="hi">· पिन कोड</span><input name="pincode" inputmode="numeric" autocomplete="postal-code" required maxlength="6" placeholder="6 digits"></label>
-        <label>City <span class="hi">· शहर</span><input name="city" autocomplete="address-level2" required maxlength="60"></label>
+        <label>PIN code<input name="pincode" inputmode="numeric" autocomplete="postal-code" required maxlength="6" placeholder="6 digits"></label>
+        <label>City<input name="city" autocomplete="address-level2" required maxlength="60"></label>
       </div>
-      <label>House no., building <span class="hi">· मकान नं., बिल्डिंग</span><input name="address" autocomplete="address-line1" required maxlength="300" placeholder="e.g. 12, Shanti Niwas"></label>
-      <label>Road, area, colony <span class="hi">· सड़क, इलाका, कॉलोनी</span><input name="area" autocomplete="address-line2" required maxlength="160" placeholder="e.g. MG Road, Gandhi Nagar"></label>
+      <label>House no., building<input name="address" autocomplete="address-line1" required maxlength="300" placeholder="e.g. 12, Shanti Niwas"></label>
+      <label>Road, area, colony<input name="area" autocomplete="address-line2" required maxlength="160" placeholder="e.g. MG Road, Gandhi Nagar"></label>
       <div class="row2">
-        <label>State <span class="hi">· राज्य</span><input name="state" autocomplete="address-level1" required maxlength="60"></label>
-        <label>Landmark <span class="hi">· पास की जगह</span> <small>(optional)</small><input name="landmark" maxlength="120" placeholder="e.g. near temple"></label>
+        <label>State<input name="state" autocomplete="address-level1" required maxlength="60"></label>
+        <label>Landmark <small>(optional)</small><input name="landmark" maxlength="120" placeholder="e.g. near temple"></label>
       </div>
     </fieldset>
 
     <fieldset>
-      <legend>Payment <span class="hi">· भुगतान</span></legend>
+      <legend>Payment</legend>
       <label class="pay-opt" data-pay="cod" id="cod-opt">
         <input type="radio" name="payMethod" value="cod" checked>
         <div class="pay-body">
-          <div class="pay-top"><b>Cash on Delivery <span class="hi">· घर पर नकद</span></b><span class="pay-amt">₹<span data-sheet-cod>449</span></span></div>
-          <small>Pay in cash when it arrives · डिलीवरी पर पैसे दें</small>
+          <div class="pay-top"><b>Cash on Delivery</b><span class="pay-amt">₹<span data-sheet-cod>449</span></span></div>
+          <small>Pay in cash when it arrives</small>
         </div>
       </label>
       <label class="pay-opt" data-pay="prepaid">
         <input type="radio" name="payMethod" value="prepaid">
         <div class="pay-body">
-          <div class="pay-top"><b>Pay Online <span class="hi">· ऑनलाइन</span></b><span class="pay-amt"><s>₹<span data-sheet-cod>449</span></s> ₹<span data-sheet-prepaid>399</span></span></div>
-          <div class="pay-perks"><span class="perk">₹<span data-sheet-save>50</span> OFF · ₹50 की छूट</span></div>
+          <div class="pay-top"><b>Pay Online</b><span class="pay-amt"><s>₹<span data-sheet-cod>449</span></s> ₹<span data-sheet-prepaid>399</span></span></div>
+          <div class="pay-perks"><span class="perk">₹<span data-sheet-save>50</span> OFF applied</span></div>
           <small>UPI · GPay · PhonePe · Paytm · Cards · Net banking</small>
         </div>
       </label>

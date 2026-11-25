@@ -80,7 +80,7 @@ function render() {
   $('#sum-disc-row').hidden = payMethod !== 'prepaid';
   $('#sum-disc').textContent = save;
   $('#sum-total').textContent = rupee(total);
-  $('#place-btn').textContent = payMethod === 'cod' ? `Place order · ऑर्डर करें · ₹${rupee(total)}` : `Pay ₹${rupee(total)} securely · भुगतान करें`;
+  $('#place-btn').textContent = payMethod === 'cod' ? `Place order · ₹${rupee(total)}` : `Pay ₹${rupee(total)} securely`;
   // hide strike-through prices when there is no online offer
   $$('.price-now s, .sb-price s').forEach((s) => (s.hidden = !prepaidAvailable));
 }
@@ -420,7 +420,7 @@ form.addEventListener('submit', async (e) => {
   showError('');
   const { v, bad } = validate();
   if (bad.length) {
-    const names = { name: 'your name', phone: 'a valid 10-digit mobile number', pincode: 'a 6-digit PIN code', city: 'city', state: 'state', address: 'house no. / building (मकान नं.)', area: 'road / area / colony (इलाका)' };
+    const names = { name: 'your name', phone: 'a valid 10-digit mobile number', pincode: 'a 6-digit PIN code', city: 'city', state: 'state', address: 'house no. / building', area: 'road / area / colony' };
     return showError(`Please enter ${bad.map((b) => names[b]).join(', ')}.`, bad);
   }
   const btn = $('#place-btn'); btn.disabled = true; const label = btn.textContent; btn.textContent = 'Please wait…';
@@ -534,7 +534,7 @@ function orderDone(opts = {}) {
     <div><span>Payment</span><b>${cod ? 'Cash on Delivery' : 'Paid online ✓'}</b></div>
     <div><span>Deliver to</span><b>${esc(o.customer.name)}, ${esc(o.customer.city)} ${esc(o.customer.pincode)}</b></div>`;
   $('#t-next').innerHTML = (cod
-    ? [`Our team will WhatsApp you on <b>+91 ${esc(o.customer.phone)}</b> to confirm · हमारी टीम WhatsApp पर कन्फर्म करेगी।`, `Keep <b>₹${rupee(o.amount)}</b> ready when the parcel arrives · डिलीवरी पर ₹${rupee(o.amount)} तैयार रखें।`]
+    ? [`Our team will WhatsApp you on <b>+91 ${esc(o.customer.phone)}</b> to confirm.`, `Keep <b>₹${rupee(o.amount)}</b> ready when the parcel arrives.`]
     : ['Payment received.'])
     .concat(['Delivery time depends on your PIN code. Email us your order number for an update.', 'Tip: start with 20–30 minutes a day.']).map((t) => `<li>${t}</li>`).join('');
   $('#t-help').href = `mailto:${cfg.business.email}?subject=${encodeURIComponent(`Order ${o.orderNo}`)}`;
