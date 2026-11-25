@@ -186,6 +186,12 @@ $('#q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTime
 $('#status-filter').addEventListener('change', loadOrders);
 $('#range').addEventListener('change', loadStats);
 $('#refresh').addEventListener('click', () => { refreshAll(); toast('Refreshed'); });
+$('#test-alert').addEventListener('click', async (e) => {
+  const b = e.currentTarget; b.disabled = true; const t = b.textContent; b.textContent = 'Sending…';
+  try { await api('/api/admin/test-alert', { method: 'POST' }); toast('Test email sent ✓ – check your inbox'); }
+  catch (err) { toast(err.message); }
+  finally { b.disabled = false; b.textContent = t; }
+});
 $('#logout').addEventListener('click', async () => { await api('/api/admin/logout', { method: 'POST' }); location.href = LOGIN; });
 
 async function refreshAll() { await Promise.all([loadStats(), loadOrders(), loadAbandoned(), loadReviews()]).catch((e) => e.message !== 'login' && toast(e.message)); }

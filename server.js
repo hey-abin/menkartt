@@ -7,6 +7,7 @@ import { config, publicConfig, bundleById } from './src/config.js';
 import { db, initDb } from './src/db.js';
 import { razorpayEnabled, createRazorpayOrder, verifyPaymentSignature, verifyWebhookSignature } from './src/razorpay.js';
 import { login, logout, requireAdmin, isAdmin } from './src/auth.js';
+import { sendOrderAlert, istDayStart, alertsEnabled } from './src/notify.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -100,12 +101,32 @@ function attributionFrom(a = {}) {
   };
 }
 
+// counts for the owner alert: real orders = COD or paid online
+async function orderCounts() {
+  const real = { paymentStatus: { $in: ['cod', 'paid'] } };
+  const [todayCount, totalCount] = await Promise.all([
+    db.countDocuments('orders', { ...real, createdAt: { $gte: istDayStart() } }),
+    db.countDocuments('orders', real),
+  ]);
+  return { todayCount: Math.max(todayCount, 1), totalCount: Math.max(totalCount, 1) };
+}
+async function alertOwner(orderNo) {
+  try {
+    if (!alertsEnabled()) return;
+    const order = await db.findOne('orders', { _id: orderNo });
+    if (order) await sendOrderAlert(order, await orderCounts());
+  } catch (e) { console.error('alertOwner', e.message); }
+}
+
 async function markPaid(order, paymentId, via) {
   const now = new Date();
-  await db.updateOne('orders', { _id: order._id }, {
+  // only the first confirmation wins (verify call and Razorpay webhook can arrive together)
+  const updated = await db.updateOne('orders', { _id: order._id, paymentStatus: { $ne: 'paid' } }, {
     paymentStatus: 'paid', status: 'new', razorpayPaymentId: paymentId, paidAt: now, updatedAt: now,
     history: [...(order.history || []), { ts: now, msg: `Paid online ₹${order.amount} (${via})` }],
   });
+  if (!updated) return;
+  await alertOwner(order.orderNo);
   if (order.cid) await db.updateOne('checkouts', { _id: order.cid }, { status: 'converted', orderNo: order.orderNo, updatedAt: now });
   await db.insertOne('events', { _id: id(), vid: order.vid, type: 'purchase', ts: now, src: order.src, data: { orderNo: order.orderNo, amount: order.amount, payMethod: 'prepaid' } });
 }
@@ -204,6 +225,7 @@ app.post('/api/orders', rateLimit('orders', 8, 10 * 60_000), async (req, res) =>
     if (payMethod === 'cod') {
       if (order.cid) await db.updateOne('checkouts', { _id: order.cid }, { status: 'converted', orderNo, updatedAt: now });
       await db.insertOne('events', { _id: id(), vid: order.vid, type: 'purchase', ts: now, src: order.src, data: { orderNo, amount, payMethod } });
+      await alertOwner(orderNo);
       return res.json({ orderNo, amount, payMethod });
     }
     res.json({
@@ -261,6 +283,7 @@ app.post('/api/orders/:orderNo/switch-cod', rateLimit('switch', 10, 10 * 60_000)
   });
   if (order.cid) await db.updateOne('checkouts', { _id: order.cid }, { status: 'converted', orderNo: order.orderNo, updatedAt: now });
   await db.insertOne('events', { _id: id(), vid: order.vid, type: 'purchase', ts: now, src: order.src, data: { orderNo: order.orderNo, amount: bundle.cod, payMethod: 'cod' } });
+  await alertOwner(order.orderNo);
   res.json({ ok: true, orderNo: order.orderNo, amount: bundle.cod, payMethod: 'cod' });
 });
 
@@ -298,6 +321,19 @@ function range(q) {
   const from = q.from ? new Date(q.from) : new Date(to.getTime() - 7 * 864e5);
   return { from, to };
 }
+
+// Send a clearly-marked TEST alert to the owner's inbox (no order is created)
+app.post('/api/admin/test-alert', async (_req, res) => {
+  if (!alertsEnabled()) return res.status(400).json({ error: 'Email alerts are not set up yet: add ORDER_ALERT_TO, SMTP_USER and SMTP_PASS in Vercel, then redeploy.' });
+  const sample = {
+    orderNo: 'TEST', payMethod: 'cod', amount: 449, bundleTitle: '1 Belt', qty: 1, createdAt: new Date(), src: 'test',
+    customer: { name: 'Test Customer', phone: '9999999999', address: 'Test address', city: 'Thrissur', state: 'Kerala', pincode: '680001' },
+  };
+  const counts = await orderCounts().catch(() => ({ todayCount: 1, totalCount: 1 }));
+  const r = await sendOrderAlert(sample, counts, { test: true });
+  if (!r.sent) return res.status(502).json({ error: `Email not sent: ${r.reason}` });
+  res.json({ ok: true });
+});
 
 app.get('/api/admin/stats', async (req, res) => {
   const { from, to } = range(req.query);
