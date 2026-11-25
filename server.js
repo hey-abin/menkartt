@@ -400,7 +400,10 @@ app.get('/api/admin/stats', async (req, res) => {
 
 app.get('/api/admin/orders', async (req, res) => {
   const f = {};
-  if (req.query.status && req.query.status !== 'all') f.status = clean(req.query.status, 30);
+  const st = clean(req.query.status || 'real', 30);
+  if (st === 'real') f.paymentStatus = { $in: ['cod', 'paid', 'cod_collected'] };
+  else if (st === 'unpaid') f.paymentStatus = { $in: ['awaiting', 'failed'] };
+  else if (st !== 'all') f.status = st;
   let list = await db.find('orders', f, { sort: { createdAt: -1 }, limit: 500 });
   const q = clean(req.query.q, 60).toLowerCase();
   if (q) list = list.filter((o) => [o.orderNo, o.customer.name, o.customer.phone, o.customer.city, o.customer.pincode].join(' ').toLowerCase().includes(q));
