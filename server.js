@@ -130,6 +130,7 @@ async function markPaid(order, paymentId, via) {
   });
   if (!updated) return;
   await alertOwner(order.orderNo);
+  if (order.customer?.phone) await supersedeUnpaid(order.customer.phone, order.orderNo);
   if (order.cid) await db.updateOne('checkouts', { _id: order.cid }, { status: 'converted', orderNo: order.orderNo, updatedAt: now });
   await db.insertOne('events', { _id: id(), vid: order.vid, type: 'purchase', ts: now, src: order.src, data: { orderNo: order.orderNo, amount: order.amount, payMethod: 'prepaid' } });
 }
@@ -177,6 +178,28 @@ app.post('/api/checkout/progress', rateLimit('progress', 40, 60_000), async (req
   res.json({ ok: true });
 });
 
+// ---------- duplicate protection ----------
+const DUP_WINDOW_MS = 30 * 60_000;
+// A COD order from the same phone in the last 30 min that is still open → reuse it instead of creating another
+async function recentOpenCodOrder(phone) {
+  const since = new Date(Date.now() - DUP_WINDOW_MS);
+  const list = await db.find('orders', { 'customer.phone': phone, payMethod: 'cod', createdAt: { $gte: since } }, { sort: { createdAt: -1 }, limit: 5 });
+  return list.find((o) => o.paymentStatus === 'cod' && ['new', 'confirmed'].includes(o.status)) || null;
+}
+// Once a real order exists, older unfinished online attempts from the same phone are just noise → cancel them
+async function supersedeUnpaid(phone, keepOrderNo) {
+  const since = new Date(Date.now() - 7 * 864e5);
+  const list = await db.find('orders', { 'customer.phone': phone, createdAt: { $gte: since } }, { limit: 50 });
+  const now = new Date();
+  for (const o of list) {
+    if (o.orderNo === keepOrderNo || !['awaiting', 'failed'].includes(o.paymentStatus) || o.status !== 'pending_payment') continue;
+    await db.updateOne('orders', { _id: o._id, paymentStatus: { $in: ['awaiting', 'failed'] } }, {
+      status: 'cancelled', updatedAt: now,
+      history: [...(o.history || []), { ts: now, msg: `Cancelled automatically – replaced by ${keepOrderNo}` }],
+    });
+  }
+}
+
 app.post('/api/orders', rateLimit('orders', 8, 10 * 60_000), async (req, res) => {
   try {
     const b = req.body || {};
@@ -202,6 +225,21 @@ app.post('/api/orders', rateLimit('orders', 8, 10 * 60_000), async (req, res) =>
 
     const attr = attributionFrom(b.attribution);
     const now = new Date();
+    if (payMethod === 'cod') {
+      const dup = await recentOpenCodOrder(customer.phone);
+      if (dup) {
+        const changed = dup.bundleId !== bundle.id || JSON.stringify(dup.customer) !== JSON.stringify(customer);
+        await db.updateOne('orders', { _id: dup._id }, {
+          bundleId: bundle.id, bundleTitle: bundle.title, qty: bundle.qty, amount: bundle.cod, customer, updatedAt: now,
+          ...(clean(b.vid, 40) ? { vid: clean(b.vid, 40) } : {}),
+          history: [...(dup.history || []), { ts: now, msg: changed ? 'Customer submitted again – details/pack updated (no duplicate order created)' : 'Customer submitted again – no duplicate order created' }],
+        });
+        const cidNow = clean(b.cid, 40);
+        if (cidNow) await db.updateOne('checkouts', { _id: cidNow }, { status: 'converted', orderNo: dup.orderNo, updatedAt: now });
+        await supersedeUnpaid(customer.phone, dup.orderNo);
+        return res.json({ orderNo: dup.orderNo, amount: bundle.cod, payMethod: 'cod', reused: true });
+      }
+    }
     const orderNo = `MK${await db.nextSeq('order')}`;
     const amount = payMethod === 'cod' ? bundle.cod : bundle.prepaid;
     const order = {
@@ -230,6 +268,7 @@ app.post('/api/orders', rateLimit('orders', 8, 10 * 60_000), async (req, res) =>
       if (order.cid) await db.updateOne('checkouts', { _id: order.cid }, { status: 'converted', orderNo, updatedAt: now });
       await db.insertOne('events', { _id: id(), vid: order.vid, type: 'purchase', ts: now, src: order.src, data: { orderNo, amount, payMethod } });
       await alertOwner(orderNo);
+      await supersedeUnpaid(customer.phone, orderNo);
       return res.json({ orderNo, amount, payMethod });
     }
     res.json({
@@ -347,6 +386,7 @@ app.post('/api/orders/:orderNo/switch-cod', rateLimit('switch', 10, 10 * 60_000)
   if (order.cid) await db.updateOne('checkouts', { _id: order.cid }, { status: 'converted', orderNo: order.orderNo, updatedAt: now });
   await db.insertOne('events', { _id: id(), vid: order.vid, type: 'purchase', ts: now, src: order.src, data: { orderNo: order.orderNo, amount: bundle.cod, payMethod: 'cod' } });
   await alertOwner(order.orderNo);
+  if (order.customer?.phone) await supersedeUnpaid(order.customer.phone, order.orderNo);
   res.json({ ok: true, orderNo: order.orderNo, amount: bundle.cod, payMethod: 'cod' });
 });
 
